@@ -1,0 +1,31 @@
+name: Predictify CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    name: 🔧 Build and Test .NET API
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v3
+
+      - name: 🧰 Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: 📦 Restore dependencies
+        run: dotnet restore Predictify.sln
+
+      - name: 🛠️ Build solution
+        run: dotnet build Predictify.sln --no-restore --configuration Release
+
+      - name: ✅ Run tests (optional)
+        run: dotnet test Predictify.sln --no-build --configuration Release --verbosity normal
+        continue-on-error: true
