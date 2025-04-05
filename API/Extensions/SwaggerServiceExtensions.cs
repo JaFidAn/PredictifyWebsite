@@ -1,4 +1,5 @@
 using Microsoft.OpenApi.Models;
+using System.Reflection;
 
 namespace API.Extensions;
 
@@ -17,6 +18,7 @@ public static class SwaggerServiceExtensions
                 Description = "Endpoints for Predictify"
             });
 
+            // ✅ JWT Security Scheme
             var jwtSecurityScheme = new OpenApiSecurityScheme
             {
                 Name = "Authorization",
@@ -41,6 +43,11 @@ public static class SwaggerServiceExtensions
                     new string[] { }
                 }
             });
+
+            // ✅ XML Comments daxil et
+            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            c.IncludeXmlComments(xmlPath); // ⬅️ Əlavə etdik
         });
 
         return services;
