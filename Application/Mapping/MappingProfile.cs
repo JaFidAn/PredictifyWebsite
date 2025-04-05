@@ -1,4 +1,5 @@
 using Application.DTOs.AuditLogs;
+using Application.DTOs.Countries;
 using AutoMapper;
 using Domain.Entities;
 
@@ -10,5 +11,10 @@ public class MappingProfile : Profile
     {
         // ✅ AuditLog
         CreateMap<AuditLog, AuditLogDto>();
+
+        // ✅ Country
+        CreateMap<Country, CountryDto>();
+        CreateMap<CreateCountryDto, Country>();
+        CreateMap<UpdateCountryDto, Country>();
     }
 }

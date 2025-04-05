@@ -11,9 +11,7 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public ApplicationDbContext(
-        DbContextOptions<ApplicationDbContext> options,
-        IHttpContextAccessor httpContextAccessor)
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IHttpContextAccessor httpContextAccessor)
         : base(options)
     {
         _httpContextAccessor = httpContextAccessor;
@@ -21,6 +19,7 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
 
     public DbSet<RevokedToken> RevokedTokens { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
+    public DbSet<Country> Countries { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
