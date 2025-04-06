@@ -7,8 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 namespace API.Controllers;
 
 [Authorize(Roles = "Admin")]
-[ApiController]
-[Route("api/[controller]")]
 public class AuditLogsController : BaseApiController
 {
     private readonly IAuditLogService _auditLogService;

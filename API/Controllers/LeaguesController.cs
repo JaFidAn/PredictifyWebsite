@@ -6,8 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
 
-[ApiController]
-[Route("api/[controller]")]
 public class LeaguesController : BaseApiController
 {
     private readonly ILeagueService _leagueService;

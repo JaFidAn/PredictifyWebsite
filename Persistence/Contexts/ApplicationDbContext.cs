@@ -22,6 +22,7 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
     public DbSet<Country> Countries { get; set; }
     public DbSet<Competition> Competitions { get; set; }
     public DbSet<League> Leagues { get; set; }
+    public DbSet<Outcome> Outcomes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
