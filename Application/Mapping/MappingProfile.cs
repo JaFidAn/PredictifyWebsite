@@ -1,5 +1,7 @@
 using Application.DTOs.AuditLogs;
 using Application.DTOs.Countries;
+using Application.DTOs.Competitions;
+using Application.DTOs.Leagues;
 using AutoMapper;
 using Domain.Entities;
 
@@ -16,5 +18,15 @@ public class MappingProfile : Profile
         CreateMap<Country, CountryDto>();
         CreateMap<CreateCountryDto, Country>();
         CreateMap<UpdateCountryDto, Country>();
+
+        // ✅ Competition
+        CreateMap<Competition, CompetitionDto>();
+        CreateMap<CreateCompetitionDto, Competition>();
+        CreateMap<UpdateCompetitionDto, Competition>();
+
+        // ✅ League
+        CreateMap<League, LeagueDto>();
+        CreateMap<CreateLeagueDto, League>();
+        CreateMap<UpdateLeagueDto, League>();
     }
 }

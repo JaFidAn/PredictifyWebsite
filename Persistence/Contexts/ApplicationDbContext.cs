@@ -20,6 +20,8 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
     public DbSet<RevokedToken> RevokedTokens { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
     public DbSet<Country> Countries { get; set; }
+    public DbSet<Competition> Competitions { get; set; }
+    public DbSet<League> Leagues { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

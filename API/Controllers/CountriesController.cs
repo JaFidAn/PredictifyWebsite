@@ -1,5 +1,6 @@
 using Application.Core;
 using Application.DTOs.Countries;
+using Application.Params;
 using Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,17 +18,17 @@ public class CountriesController : BaseApiController
     }
 
     /// <summary>
-    /// Get all countries with pagination
+    /// Get all countries with optional filters and pagination
     /// </summary>
-    /// <param name="paginationParams">Pagination parameters</param>
+    /// <param name="filters">Pagination + filtering parameters</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Paginated list of countries</returns>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<CountryDto>), 200)]
     [ProducesResponseType(typeof(ValidationProblemDetails), 400)]
-    public async Task<IActionResult> GetAll([FromQuery] PaginationParams paginationParams, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAll([FromQuery] CountryFilterParams filters, CancellationToken cancellationToken)
     {
-        var result = await _countryService.GetAllAsync(paginationParams, cancellationToken);
+        var result = await _countryService.GetAllAsync(filters, cancellationToken);
         return HandleResult(result);
     }
 
@@ -35,7 +36,6 @@ public class CountriesController : BaseApiController
     /// Get country by ID
     /// </summary>
     /// <param name="id">Country ID</param>
-    /// <returns>Country DTO</returns>
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(CountryDto), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]
@@ -49,7 +49,6 @@ public class CountriesController : BaseApiController
     /// Create a new country
     /// </summary>
     /// <param name="dto">Country data</param>
-    /// <returns>Created country DTO</returns>
     [HttpPost]
     [ProducesResponseType(typeof(CountryDto), 201)]
     [ProducesResponseType(typeof(ValidationProblemDetails), 400)]
@@ -64,7 +63,6 @@ public class CountriesController : BaseApiController
     /// Update an existing country
     /// </summary>
     /// <param name="dto">Country update data</param>
-    /// <returns>True if updated</returns>
     [HttpPut]
     [ProducesResponseType(typeof(bool), 200)]
     [ProducesResponseType(typeof(ValidationProblemDetails), 400)]
@@ -80,7 +78,6 @@ public class CountriesController : BaseApiController
     /// Delete a country by ID (soft delete)
     /// </summary>
     /// <param name="id">Country ID</param>
-    /// <returns>True if deleted</returns>
     [HttpDelete("{id}")]
     [ProducesResponseType(typeof(bool), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]

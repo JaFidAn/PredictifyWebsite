@@ -1,5 +1,6 @@
 using Application.Core;
 using Application.DTOs.Countries;
+using Application.Params;
 using Application.Repositories.CountryRepositories;
 using Application.Services;
 using Application.Utilities;
@@ -35,17 +36,24 @@ public class CountryService : ICountryService
         return Result<CountryDto>.Success(dto);
     }
 
-    public async Task<Result<PagedResult<CountryDto>>> GetAllAsync(PaginationParams paginationParams, CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<CountryDto>>> GetAllAsync(CountryFilterParams filters, CancellationToken cancellationToken)
     {
-        var query = _readRepository
-            .GetAll()
-            .OrderBy(x => x.Name)
-            .ProjectTo<CountryDto>(_mapper.ConfigurationProvider);
+        var query = _readRepository.GetAll();
+
+        if (!string.IsNullOrWhiteSpace(filters.Name))
+            query = query.Where(x => x.Name.ToLower().Contains(filters.Name.ToLower()));
+
+        if (!string.IsNullOrWhiteSpace(filters.Code))
+            query = query.Where(x => x.Code.ToLower().Contains(filters.Code.ToLower()));
+
+        query = query.OrderBy(x => x.Name);
+
+        var projectedQuery = query.ProjectTo<CountryDto>(_mapper.ConfigurationProvider);
 
         var pagedResult = await PagedResult<CountryDto>.CreateAsync(
-            query,
-            paginationParams.PageNumber,
-            paginationParams.PageSize,
+            projectedQuery,
+            filters.PageNumber,
+            filters.PageSize,
             cancellationToken
         );
 
