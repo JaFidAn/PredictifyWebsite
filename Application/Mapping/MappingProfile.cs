@@ -1,8 +1,9 @@
 using Application.DTOs.AuditLogs;
-using Application.DTOs.Countries;
 using Application.DTOs.Competitions;
+using Application.DTOs.Countries;
 using Application.DTOs.Leagues;
 using Application.DTOs.Outcomes;
+using Application.DTOs.Seasons;
 using AutoMapper;
 using Domain.Entities;
 
@@ -34,5 +35,10 @@ public class MappingProfile : Profile
         CreateMap<Outcome, OutcomeDto>();
         CreateMap<CreateOutcomeDto, Outcome>();
         CreateMap<UpdateOutcomeDto, Outcome>();
+
+        // ✅ Season
+        CreateMap<Season, SeasonDto>();
+        CreateMap<CreateSeasonDto, Season>();
+        CreateMap<UpdateSeasonDto, Season>();
     }
 }
