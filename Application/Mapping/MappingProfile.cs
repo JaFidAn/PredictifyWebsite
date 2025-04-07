@@ -4,6 +4,7 @@ using Application.DTOs.Countries;
 using Application.DTOs.Leagues;
 using Application.DTOs.Outcomes;
 using Application.DTOs.Seasons;
+using Application.DTOs.Teams;
 using AutoMapper;
 using Domain.Entities;
 
@@ -40,5 +41,19 @@ public class MappingProfile : Profile
         CreateMap<Season, SeasonDto>();
         CreateMap<CreateSeasonDto, Season>();
         CreateMap<UpdateSeasonDto, Season>();
+
+        // ✅ Team
+        CreateMap<CreateTeamDto, Team>();
+        CreateMap<UpdateTeamDto, Team>();
+
+        CreateMap<Team, TeamDto>()
+            .ForMember(dest => dest.CountryName, opt => opt.MapFrom(src => src.Country.Name));
+
+        // ✅ TeamSeasonLeague
+        CreateMap<TeamSeasonLeague, TeamSeasonLeagueDto>()
+            .ForMember(dest => dest.SeasonName, opt => opt.MapFrom(src => src.Season.Name))
+            .ForMember(dest => dest.LeagueName, opt => opt.MapFrom(src => src.League.Name));
+
+        CreateMap<TeamSeasonLeagueCreateDto, TeamSeasonLeague>();
     }
 }

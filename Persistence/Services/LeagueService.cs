@@ -8,6 +8,7 @@ using Application.Utilities;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Domain.Entities;
+using Application.Repositories;
 
 namespace Persistence.Services;
 
@@ -16,17 +17,20 @@ public class LeagueService : ILeagueService
     private readonly ILeagueReadRepository _readRepository;
     private readonly ILeagueWriteRepository _writeRepository;
     private readonly ICompetitionWriteRepository _competitionWriteRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
 
     public LeagueService(
         ILeagueReadRepository readRepository,
         ILeagueWriteRepository writeRepository,
         ICompetitionWriteRepository competitionWriteRepository,
+        IUnitOfWork unitOfWork,
         IMapper mapper)
     {
         _readRepository = readRepository;
         _writeRepository = writeRepository;
         _competitionWriteRepository = competitionWriteRepository;
+        _unitOfWork = unitOfWork;
         _mapper = mapper;
     }
 
@@ -69,70 +73,103 @@ public class LeagueService : ILeagueService
 
     public async Task<Result<LeagueDto>> CreateAsync(CreateLeagueDto dto)
     {
-        var duplicate = await _readRepository.GetSingleAsync(
-            x => x.Name.ToLower() == dto.Name.ToLower() && x.CountryId == dto.CountryId);
+        await _unitOfWork.BeginTransactionAsync();
 
-        if (duplicate is not null)
-            return Result<LeagueDto>.Failure(MessageGenerator.AlreadyExists("League"), 409);
-
-        var league = _mapper.Map<League>(dto);
-
-        if (!string.IsNullOrWhiteSpace(dto.CompetitionId))
+        try
         {
-            league.CompetitionId = dto.CompetitionId;
-        }
-        else
-        {
-            var competition = new Competition
+            var duplicate = await _readRepository.GetSingleAsync(
+                x => x.Name.ToLower() == dto.Name.ToLower() && x.CountryId == dto.CountryId);
+
+            if (duplicate is not null)
+                return Result<LeagueDto>.Failure(MessageGenerator.AlreadyExists("League"), 409);
+
+            var league = _mapper.Map<League>(dto);
+
+            if (!string.IsNullOrWhiteSpace(dto.CompetitionId))
             {
-                Name = dto.Name,
-                IsInternational = false
-            };
+                league.CompetitionId = dto.CompetitionId;
+            }
+            else
+            {
+                var competition = new Competition
+                {
+                    Name = dto.Name,
+                    IsInternational = false
+                };
 
-            await _competitionWriteRepository.AddAsync(competition);
-            await _competitionWriteRepository.SaveAsync();
+                await _competitionWriteRepository.AddAsync(competition);
+                await _unitOfWork.SaveChangesAsync();
 
-            league.CompetitionId = competition.Id;
+                league.CompetitionId = competition.Id;
+            }
+
+            await _writeRepository.AddAsync(league);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
+
+            var resultDto = _mapper.Map<LeagueDto>(league);
+            return Result<LeagueDto>.Success(resultDto, MessageGenerator.CreationSuccess("League"));
         }
-
-        await _writeRepository.AddAsync(league);
-        await _writeRepository.SaveAsync();
-
-        var resultDto = _mapper.Map<LeagueDto>(league);
-        return Result<LeagueDto>.Success(resultDto, MessageGenerator.CreationSuccess("League"));
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<Result<bool>> UpdateAsync(UpdateLeagueDto dto)
     {
-        var league = await _readRepository.GetByIdAsync(dto.Id);
-        if (league == null || league.IsDeleted)
-            return Result<bool>.Failure(MessageGenerator.NotFound("League"), 404);
+        await _unitOfWork.BeginTransactionAsync();
 
-        var duplicate = await _readRepository.GetSingleAsync(
-            x => x.Id != dto.Id &&
-                 x.Name.ToLower() == dto.Name.ToLower() &&
-                 x.CountryId == dto.CountryId);
+        try
+        {
+            var league = await _readRepository.GetByIdAsync(dto.Id);
+            if (league == null || league.IsDeleted)
+                return Result<bool>.Failure(MessageGenerator.NotFound("League"), 404);
 
-        if (duplicate is not null)
-            return Result<bool>.Failure(MessageGenerator.DuplicateExists("League"), 409);
+            var duplicate = await _readRepository.GetSingleAsync(
+                x => x.Id != dto.Id &&
+                     x.Name.ToLower() == dto.Name.ToLower() &&
+                     x.CountryId == dto.CountryId);
 
-        _mapper.Map(dto, league);
-        _writeRepository.Update(league);
-        await _writeRepository.SaveAsync();
+            if (duplicate is not null)
+                return Result<bool>.Failure(MessageGenerator.DuplicateExists("League"), 409);
 
-        return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("League"));
+            _mapper.Map(dto, league);
+            _writeRepository.Update(league);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
+
+            return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("League"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<Result<bool>> DeleteAsync(string id)
     {
-        var league = await _readRepository.GetByIdAsync(id);
-        if (league == null || league.IsDeleted)
-            return Result<bool>.Failure(MessageGenerator.NotFound("League"), 404);
+        await _unitOfWork.BeginTransactionAsync();
 
-        league.IsDeleted = true;
-        _writeRepository.Update(league);
-        await _writeRepository.SaveAsync();
+        try
+        {
+            var league = await _readRepository.GetByIdAsync(id);
+            if (league == null || league.IsDeleted)
+                return Result<bool>.Failure(MessageGenerator.NotFound("League"), 404);
 
-        return Result<bool>.Success(true, MessageGenerator.DeletionSuccess("League"));
+            league.IsDeleted = true;
+            _writeRepository.Update(league);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
+
+            return Result<bool>.Success(true, MessageGenerator.DeletionSuccess("League"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 }

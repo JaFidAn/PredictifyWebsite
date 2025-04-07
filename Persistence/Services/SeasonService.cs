@@ -1,6 +1,7 @@
 using Application.Core;
 using Application.DTOs.Seasons;
 using Application.Params;
+using Application.Repositories;
 using Application.Repositories.SeasonRepositories;
 using Application.Services;
 using Application.Utilities;
@@ -14,15 +15,18 @@ public class SeasonService : ISeasonService
 {
     private readonly ISeasonReadRepository _readRepository;
     private readonly ISeasonWriteRepository _writeRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
 
     public SeasonService(
         ISeasonReadRepository readRepository,
         ISeasonWriteRepository writeRepository,
+        IUnitOfWork unitOfWork,
         IMapper mapper)
     {
         _readRepository = readRepository;
         _writeRepository = writeRepository;
+        _unitOfWork = unitOfWork;
         _mapper = mapper;
     }
 
@@ -71,55 +75,87 @@ public class SeasonService : ISeasonService
 
     public async Task<Result<SeasonDto>> CreateAsync(CreateSeasonDto dto)
     {
-        var duplicate = await _readRepository.GetSingleAsync(x =>
-            x.Name.ToLower() == dto.Name.ToLower() &&
-            x.StartDate == dto.StartDate &&
-            x.EndDate == dto.EndDate);
+        await _unitOfWork.BeginTransactionAsync();
 
-        if (duplicate is not null)
-            return Result<SeasonDto>.Failure(MessageGenerator.AlreadyExists("Season"), 409);
+        try
+        {
+            var duplicate = await _readRepository.GetSingleAsync(x =>
+                x.Name.ToLower() == dto.Name.ToLower() &&
+                x.StartDate == dto.StartDate &&
+                x.EndDate == dto.EndDate);
 
-        var season = _mapper.Map<Season>(dto);
+            if (duplicate is not null)
+                return Result<SeasonDto>.Failure(MessageGenerator.AlreadyExists("Season"), 409);
 
-        await _writeRepository.AddAsync(season);
-        await _writeRepository.SaveAsync();
+            var season = _mapper.Map<Season>(dto);
+            await _writeRepository.AddAsync(season);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
 
-        var resultDto = _mapper.Map<SeasonDto>(season);
-        return Result<SeasonDto>.Success(resultDto, MessageGenerator.CreationSuccess("Season"));
+            var resultDto = _mapper.Map<SeasonDto>(season);
+            return Result<SeasonDto>.Success(resultDto, MessageGenerator.CreationSuccess("Season"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<Result<bool>> UpdateAsync(UpdateSeasonDto dto)
     {
-        var season = await _readRepository.GetByIdAsync(dto.Id);
-        if (season == null || season.IsDeleted)
-            return Result<bool>.Failure(MessageGenerator.NotFound("Season"), 404);
+        await _unitOfWork.BeginTransactionAsync();
 
-        var duplicate = await _readRepository.GetSingleAsync(x =>
-            x.Id != dto.Id &&
-            x.Name.ToLower() == dto.Name.ToLower() &&
-            x.StartDate == dto.StartDate &&
-            x.EndDate == dto.EndDate);
+        try
+        {
+            var season = await _readRepository.GetByIdAsync(dto.Id);
+            if (season == null || season.IsDeleted)
+                return Result<bool>.Failure(MessageGenerator.NotFound("Season"), 404);
 
-        if (duplicate is not null)
-            return Result<bool>.Failure(MessageGenerator.DuplicateExists("Season"), 409);
+            var duplicate = await _readRepository.GetSingleAsync(x =>
+                x.Id != dto.Id &&
+                x.Name.ToLower() == dto.Name.ToLower() &&
+                x.StartDate == dto.StartDate &&
+                x.EndDate == dto.EndDate);
 
-        _mapper.Map(dto, season);
-        _writeRepository.Update(season);
-        await _writeRepository.SaveAsync();
+            if (duplicate is not null)
+                return Result<bool>.Failure(MessageGenerator.DuplicateExists("Season"), 409);
 
-        return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("Season"));
+            _mapper.Map(dto, season);
+            _writeRepository.Update(season);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
+
+            return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("Season"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<Result<bool>> DeleteAsync(string id)
     {
-        var season = await _readRepository.GetByIdAsync(id);
-        if (season == null || season.IsDeleted)
-            return Result<bool>.Failure(MessageGenerator.NotFound("Season"), 404);
+        await _unitOfWork.BeginTransactionAsync();
 
-        season.IsDeleted = true;
-        _writeRepository.Update(season);
-        await _writeRepository.SaveAsync();
+        try
+        {
+            var season = await _readRepository.GetByIdAsync(id);
+            if (season == null || season.IsDeleted)
+                return Result<bool>.Failure(MessageGenerator.NotFound("Season"), 404);
 
-        return Result<bool>.Success(true, MessageGenerator.DeletionSuccess("Season"));
+            season.IsDeleted = true;
+            _writeRepository.Update(season);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
+
+            return Result<bool>.Success(true, MessageGenerator.DeletionSuccess("Season"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 }

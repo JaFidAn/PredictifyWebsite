@@ -1,12 +1,14 @@
 using Application.Core;
 using Application.DTOs.Competitions;
 using Application.Params;
+using Application.Repositories;
 using Application.Repositories.CompetitionRepositories;
 using Application.Services;
 using Application.Utilities;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Persistence.Services;
 
@@ -14,15 +16,18 @@ public class CompetitionService : ICompetitionService
 {
     private readonly ICompetitionReadRepository _readRepository;
     private readonly ICompetitionWriteRepository _writeRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
 
     public CompetitionService(
         ICompetitionReadRepository readRepository,
         ICompetitionWriteRepository writeRepository,
+        IUnitOfWork unitOfWork,
         IMapper mapper)
     {
         _readRepository = readRepository;
         _writeRepository = writeRepository;
+        _unitOfWork = unitOfWork;
         _mapper = mapper;
     }
 
@@ -62,48 +67,83 @@ public class CompetitionService : ICompetitionService
 
     public async Task<Result<CompetitionDto>> CreateAsync(CreateCompetitionDto dto)
     {
-        var duplicate = await _readRepository.GetSingleAsync(x => x.Name.ToLower() == dto.Name.ToLower());
-        if (duplicate is not null)
-            return Result<CompetitionDto>.Failure(MessageGenerator.AlreadyExists("Competition"), 409);
+        await _unitOfWork.BeginTransactionAsync();
 
-        var competition = _mapper.Map<Competition>(dto);
+        try
+        {
+            var duplicate = await _readRepository.GetSingleAsync(x => x.Name.ToLower() == dto.Name.ToLower());
+            if (duplicate is not null)
+                return Result<CompetitionDto>.Failure(MessageGenerator.AlreadyExists("Competition"), 409);
 
-        await _writeRepository.AddAsync(competition);
-        await _writeRepository.SaveAsync();
+            var competition = _mapper.Map<Competition>(dto);
 
-        var resultDto = _mapper.Map<CompetitionDto>(competition);
-        return Result<CompetitionDto>.Success(resultDto, MessageGenerator.CreationSuccess("Competition"));
+            await _writeRepository.AddAsync(competition);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
+
+            var resultDto = _mapper.Map<CompetitionDto>(competition);
+            return Result<CompetitionDto>.Success(resultDto, MessageGenerator.CreationSuccess("Competition"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<Result<bool>> UpdateAsync(UpdateCompetitionDto dto)
     {
-        var competition = await _readRepository.GetByIdAsync(dto.Id);
-        if (competition == null || competition.IsDeleted)
-            return Result<bool>.Failure(MessageGenerator.NotFound("Competition"), 404);
+        await _unitOfWork.BeginTransactionAsync();
 
-        var duplicate = await _readRepository.GetSingleAsync(x =>
-            x.Id != dto.Id && x.Name.ToLower() == dto.Name.ToLower());
+        try
+        {
+            var competition = await _readRepository.GetByIdAsync(dto.Id);
+            if (competition == null || competition.IsDeleted)
+                return Result<bool>.Failure(MessageGenerator.NotFound("Competition"), 404);
 
-        if (duplicate is not null)
-            return Result<bool>.Failure(MessageGenerator.DuplicateExists("Competition"), 409);
+            var duplicate = await _readRepository.GetSingleAsync(x =>
+                x.Id != dto.Id && x.Name.ToLower() == dto.Name.ToLower());
 
-        _mapper.Map(dto, competition);
-        _writeRepository.Update(competition);
-        await _writeRepository.SaveAsync();
+            if (duplicate is not null)
+                return Result<bool>.Failure(MessageGenerator.DuplicateExists("Competition"), 409);
 
-        return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("Competition"));
+            _mapper.Map(dto, competition);
+            _writeRepository.Update(competition);
+
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
+
+            return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("Competition"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<Result<bool>> DeleteAsync(string id)
     {
-        var competition = await _readRepository.GetByIdAsync(id);
-        if (competition == null || competition.IsDeleted)
-            return Result<bool>.Failure(MessageGenerator.NotFound("Competition"), 404);
+        await _unitOfWork.BeginTransactionAsync();
 
-        competition.IsDeleted = true;
-        _writeRepository.Update(competition);
-        await _writeRepository.SaveAsync();
+        try
+        {
+            var competition = await _readRepository.GetByIdAsync(id);
+            if (competition == null || competition.IsDeleted)
+                return Result<bool>.Failure(MessageGenerator.NotFound("Competition"), 404);
 
-        return Result<bool>.Success(true, MessageGenerator.DeletionSuccess("Competition"));
+            competition.IsDeleted = true;
+            _writeRepository.Update(competition);
+
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
+
+            return Result<bool>.Success(true, MessageGenerator.DeletionSuccess("Competition"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 }

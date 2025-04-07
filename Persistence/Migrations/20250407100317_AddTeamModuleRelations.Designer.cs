@@ -12,8 +12,8 @@ using Persistence.Contexts;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250406113628_AddCompetitionAndLeagueTables")]
-    partial class AddCompetitionAndLeagueTables
+    [Migration("20250407100317_AddTeamModuleRelations")]
+    partial class AddTeamModuleRelations
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -275,6 +275,43 @@ namespace Persistence.Migrations
                     b.ToTable("Leagues");
                 });
 
+            modelBuilder.Entity("Domain.Entities.Outcome", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Outcomes");
+                });
+
             modelBuilder.Entity("Domain.Entities.RevokedToken", b =>
                 {
                     b.Property<string>("Id")
@@ -294,6 +331,107 @@ namespace Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("RevokedTokens");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Season", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("StartDate", "EndDate")
+                        .IsUnique();
+
+                    b.ToTable("Seasons");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Team", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("CountryId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CountryId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Teams");
+                });
+
+            modelBuilder.Entity("Domain.Entities.TeamSeasonLeague", b =>
+                {
+                    b.Property<string>("TeamId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("SeasonId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("LeagueId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("TeamId", "SeasonId", "LeagueId");
+
+                    b.HasIndex("LeagueId");
+
+                    b.HasIndex("SeasonId");
+
+                    b.ToTable("TeamSeasonLeagues");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -448,6 +586,44 @@ namespace Persistence.Migrations
                     b.Navigation("Country");
                 });
 
+            modelBuilder.Entity("Domain.Entities.Team", b =>
+                {
+                    b.HasOne("Domain.Entities.Country", "Country")
+                        .WithMany("Teams")
+                        .HasForeignKey("CountryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Country");
+                });
+
+            modelBuilder.Entity("Domain.Entities.TeamSeasonLeague", b =>
+                {
+                    b.HasOne("Domain.Entities.League", "League")
+                        .WithMany()
+                        .HasForeignKey("LeagueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Season", "Season")
+                        .WithMany("TeamSeasonLeagues")
+                        .HasForeignKey("SeasonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Team", "Team")
+                        .WithMany("TeamSeasonLeagues")
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("League");
+
+                    b.Navigation("Season");
+
+                    b.Navigation("Team");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -502,6 +678,21 @@ namespace Persistence.Migrations
             modelBuilder.Entity("Domain.Entities.Competition", b =>
                 {
                     b.Navigation("Leagues");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Country", b =>
+                {
+                    b.Navigation("Teams");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Season", b =>
+                {
+                    b.Navigation("TeamSeasonLeagues");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Team", b =>
+                {
+                    b.Navigation("TeamSeasonLeagues");
                 });
 #pragma warning restore 612, 618
         }

@@ -24,6 +24,8 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
     public DbSet<League> Leagues { get; set; }
     public DbSet<Outcome> Outcomes { get; set; }
     public DbSet<Season> Seasons { get; set; }
+    public DbSet<Team> Teams { get; set; }
+    public DbSet<TeamSeasonLeague> TeamSeasonLeagues { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

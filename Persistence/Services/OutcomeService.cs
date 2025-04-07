@@ -1,6 +1,7 @@
 using Application.Core;
 using Application.DTOs.Outcomes;
 using Application.Params;
+using Application.Repositories;
 using Application.Repositories.OutcomeRepositories;
 using Application.Services;
 using Application.Utilities;
@@ -14,15 +15,18 @@ public class OutcomeService : IOutcomeService
 {
     private readonly IOutcomeReadRepository _readRepository;
     private readonly IOutcomeWriteRepository _writeRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
 
     public OutcomeService(
         IOutcomeReadRepository readRepository,
         IOutcomeWriteRepository writeRepository,
+        IUnitOfWork unitOfWork,
         IMapper mapper)
     {
         _readRepository = readRepository;
         _writeRepository = writeRepository;
+        _unitOfWork = unitOfWork;
         _mapper = mapper;
     }
 
@@ -59,48 +63,82 @@ public class OutcomeService : IOutcomeService
 
     public async Task<Result<OutcomeDto>> CreateAsync(CreateOutcomeDto dto)
     {
-        var duplicate = await _readRepository.GetSingleAsync(x => x.Name.ToLower() == dto.Name.ToLower());
-        if (duplicate is not null)
-            return Result<OutcomeDto>.Failure(MessageGenerator.AlreadyExists("Outcome"), 409);
+        await _unitOfWork.BeginTransactionAsync();
 
-        var outcome = _mapper.Map<Outcome>(dto);
+        try
+        {
+            var duplicate = await _readRepository.GetSingleAsync(x => x.Name.ToLower() == dto.Name.ToLower());
+            if (duplicate is not null)
+                return Result<OutcomeDto>.Failure(MessageGenerator.AlreadyExists("Outcome"), 409);
 
-        await _writeRepository.AddAsync(outcome);
-        await _writeRepository.SaveAsync();
+            var outcome = _mapper.Map<Outcome>(dto);
+            await _writeRepository.AddAsync(outcome);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
 
-        var resultDto = _mapper.Map<OutcomeDto>(outcome);
-        return Result<OutcomeDto>.Success(resultDto, MessageGenerator.CreationSuccess("Outcome"));
+            var resultDto = _mapper.Map<OutcomeDto>(outcome);
+            return Result<OutcomeDto>.Success(resultDto, MessageGenerator.CreationSuccess("Outcome"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<Result<bool>> UpdateAsync(UpdateOutcomeDto dto)
     {
-        var outcome = await _readRepository.GetByIdAsync(dto.Id);
-        if (outcome == null || outcome.IsDeleted)
-            return Result<bool>.Failure(MessageGenerator.NotFound("Outcome"), 404);
+        await _unitOfWork.BeginTransactionAsync();
 
-        var duplicate = await _readRepository.GetSingleAsync(x =>
-            x.Id != dto.Id && x.Name.ToLower() == dto.Name.ToLower());
+        try
+        {
+            var outcome = await _readRepository.GetByIdAsync(dto.Id);
+            if (outcome == null || outcome.IsDeleted)
+                return Result<bool>.Failure(MessageGenerator.NotFound("Outcome"), 404);
 
-        if (duplicate is not null)
-            return Result<bool>.Failure(MessageGenerator.DuplicateExists("Outcome"), 409);
+            var duplicate = await _readRepository.GetSingleAsync(x =>
+                x.Id != dto.Id && x.Name.ToLower() == dto.Name.ToLower());
 
-        _mapper.Map(dto, outcome);
-        _writeRepository.Update(outcome);
-        await _writeRepository.SaveAsync();
+            if (duplicate is not null)
+                return Result<bool>.Failure(MessageGenerator.DuplicateExists("Outcome"), 409);
 
-        return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("Outcome"));
+            _mapper.Map(dto, outcome);
+            _writeRepository.Update(outcome);
+
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
+
+            return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("Outcome"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<Result<bool>> DeleteAsync(string id)
     {
-        var outcome = await _readRepository.GetByIdAsync(id);
-        if (outcome == null || outcome.IsDeleted)
-            return Result<bool>.Failure(MessageGenerator.NotFound("Outcome"), 404);
+        await _unitOfWork.BeginTransactionAsync();
 
-        outcome.IsDeleted = true;
-        _writeRepository.Update(outcome);
-        await _writeRepository.SaveAsync();
+        try
+        {
+            var outcome = await _readRepository.GetByIdAsync(id);
+            if (outcome == null || outcome.IsDeleted)
+                return Result<bool>.Failure(MessageGenerator.NotFound("Outcome"), 404);
 
-        return Result<bool>.Success(true, MessageGenerator.DeletionSuccess("Outcome"));
+            outcome.IsDeleted = true;
+            _writeRepository.Update(outcome);
+
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
+
+            return Result<bool>.Success(true, MessageGenerator.DeletionSuccess("Outcome"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 }
