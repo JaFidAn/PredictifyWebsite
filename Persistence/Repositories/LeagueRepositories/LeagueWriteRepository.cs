@@ -4,7 +4,7 @@ using Persistence.Contexts;
 
 namespace Persistence.Repositories.LeagueRepositories;
 
-public class LeagueWriteRepository : WriteRepository<League>, ILeagueWriteRepository
+public class LeagueWriteRepository : WriteRepository<League, int>, ILeagueWriteRepository
 {
     public LeagueWriteRepository(ApplicationDbContext context) : base(context) { }
 }

@@ -12,6 +12,7 @@ public class CreateLeagueValidator : AbstractValidator<CreateLeagueDto>
             .MaximumLength(150).WithMessage("Name must not exceed 150 characters");
 
         RuleFor(x => x.CountryId)
-            .NotEmpty().WithMessage("CountryId is required");
+            .NotEmpty().WithMessage("CountryId is required")
+            .GreaterThan(0).WithMessage("Id must be greater than zero");
     }
 }

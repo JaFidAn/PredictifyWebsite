@@ -81,7 +81,6 @@ public class TeamService : ITeamService
                 return Result<bool>.Failure(MessageGenerator.DuplicateExists("Team"), 409);
 
             _writeRepository.RemoveTeamSeasonLeagues(team);
-
             _mapper.Map(dto, team);
 
             team.TeamSeasonLeagues = BuildTeamSeasonLeagues(team.Id, dto.TeamSeasonLeagues);
@@ -99,7 +98,7 @@ public class TeamService : ITeamService
         }
     }
 
-    public async Task<Result<bool>> DeleteAsync(string id)
+    public async Task<Result<bool>> DeleteAsync(int id)
     {
         await _unitOfWork.BeginTransactionAsync();
 
@@ -129,14 +128,14 @@ public class TeamService : ITeamService
         }
     }
 
-    public async Task<Result<TeamDto>> GetByIdAsync(string id)
+    public async Task<Result<TeamDto>> GetByIdAsync(int id)
     {
         var team = await _readRepository.GetAll()
             .Include(x => x.TeamSeasonLeagues)
-            .ThenInclude(x => x.League)
+                .ThenInclude(x => x.League)
             .Include(x => x.Country)
             .Include(x => x.TeamSeasonLeagues)
-            .ThenInclude(x => x.Season)
+                .ThenInclude(x => x.Season)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (team == null || team.IsDeleted)
@@ -153,14 +152,14 @@ public class TeamService : ITeamService
         if (!string.IsNullOrWhiteSpace(filters.Name))
             query = query.Where(x => x.Name.ToLower().Contains(filters.Name.ToLower()));
 
-        if (!string.IsNullOrWhiteSpace(filters.CountryId))
-            query = query.Where(x => x.CountryId == filters.CountryId);
+        if (filters.CountryId.HasValue)
+            query = query.Where(x => x.CountryId == filters.CountryId.Value);
 
-        if (!string.IsNullOrWhiteSpace(filters.SeasonId))
-            query = query.Where(x => x.TeamSeasonLeagues.Any(tsl => tsl.SeasonId == filters.SeasonId));
+        if (filters.SeasonId.HasValue)
+            query = query.Where(x => x.TeamSeasonLeagues.Any(tsl => tsl.SeasonId == filters.SeasonId.Value));
 
-        if (!string.IsNullOrWhiteSpace(filters.LeagueId))
-            query = query.Where(x => x.TeamSeasonLeagues.Any(tsl => tsl.LeagueId == filters.LeagueId));
+        if (filters.LeagueId.HasValue)
+            query = query.Where(x => x.TeamSeasonLeagues.Any(tsl => tsl.LeagueId == filters.LeagueId.Value));
 
         query = query.OrderBy(x => x.Name);
 
@@ -176,7 +175,7 @@ public class TeamService : ITeamService
         return Result<PagedResult<TeamDto>>.Success(pagedResult);
     }
 
-    private static List<TeamSeasonLeague> BuildTeamSeasonLeagues(string teamId, List<TeamSeasonLeagueCreateDto> items)
+    private static List<TeamSeasonLeague> BuildTeamSeasonLeagues(int teamId, List<TeamSeasonLeagueCreateDto> items)
     {
         return items
             .DistinctBy(x => new { x.SeasonId, x.LeagueId })

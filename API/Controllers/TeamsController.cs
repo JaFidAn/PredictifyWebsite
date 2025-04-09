@@ -35,7 +35,7 @@ public class TeamsController : BaseApiController
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(TeamDto), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]
-    public async Task<IActionResult> GetById(string id)
+    public async Task<IActionResult> GetById(int id)
     {
         var result = await _teamService.GetByIdAsync(id);
         return HandleResult(result);
@@ -74,7 +74,7 @@ public class TeamsController : BaseApiController
     [HttpDelete("{id}")]
     [ProducesResponseType(typeof(bool), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]
-    public async Task<IActionResult> Delete(string id)
+    public async Task<IActionResult> Delete(int id)
     {
         var result = await _teamService.DeleteAsync(id);
         return HandleResult(result);

@@ -30,7 +30,7 @@ public class CountryService : ICountryService
         _mapper = mapper;
     }
 
-    public async Task<Result<CountryDto>> GetByIdAsync(string id)
+    public async Task<Result<CountryDto>> GetByIdAsync(int id)
     {
         var country = await _readRepository.GetByIdAsync(id);
         if (country == null || country.IsDeleted)
@@ -124,7 +124,7 @@ public class CountryService : ICountryService
         }
     }
 
-    public async Task<Result<bool>> DeleteAsync(string id)
+    public async Task<Result<bool>> DeleteAsync(int id)
     {
         await _unitOfWork.BeginTransactionAsync();
 

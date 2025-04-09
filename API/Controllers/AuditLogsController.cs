@@ -43,7 +43,7 @@ public class AuditLogsController : BaseApiController
     [ProducesResponseType(typeof(ProblemDetails), 404)]
     [ProducesResponseType(typeof(ProblemDetails), 401)]
     [ProducesResponseType(typeof(ProblemDetails), 403)]
-    public async Task<IActionResult> GetById(string id)
+    public async Task<IActionResult> GetById(int id)
     {
         var result = await _auditLogService.GetByIdAsync(id);
         return HandleResult(result);

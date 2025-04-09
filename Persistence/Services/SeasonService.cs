@@ -30,7 +30,7 @@ public class SeasonService : ISeasonService
         _mapper = mapper;
     }
 
-    public async Task<Result<SeasonDto>> GetByIdAsync(string id)
+    public async Task<Result<SeasonDto>> GetByIdAsync(int id)
     {
         var season = await _readRepository.GetByIdAsync(id);
         if (season == null || season.IsDeleted)
@@ -135,7 +135,7 @@ public class SeasonService : ISeasonService
         }
     }
 
-    public async Task<Result<bool>> DeleteAsync(string id)
+    public async Task<Result<bool>> DeleteAsync(int id)
     {
         await _unitOfWork.BeginTransactionAsync();
 

@@ -36,7 +36,7 @@ public class AuditLogService : IAuditLogService
         return Result<PagedResult<AuditLogDto>>.Success(pagedResult);
     }
 
-    public async Task<Result<AuditLogDto>> GetByIdAsync(string id)
+    public async Task<Result<AuditLogDto>> GetByIdAsync(int id)
     {
         var log = await _readRepository
             .GetAll()

@@ -12,8 +12,8 @@ using Persistence.Contexts;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250407100317_AddTeamModuleRelations")]
-    partial class AddTeamModuleRelations
+    [Migration("20250409100100_UpdateEntitiesToUseIntId")]
+    partial class UpdateEntitiesToUseIntId
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -96,8 +96,11 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.AuditLog", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Action")
                         .IsRequired()
@@ -155,8 +158,11 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.Competition", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -191,8 +197,11 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.Country", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -232,16 +241,17 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.League", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                    b.Property<string>("CompetitionId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("CountryId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("CompetitionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CountryId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -277,8 +287,11 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.Outcome", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -314,8 +327,11 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.RevokedToken", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("RevokedAt")
                         .HasColumnType("datetime2");
@@ -335,8 +351,11 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.Season", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -377,12 +396,14 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.Team", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                    b.Property<string>("CountryId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CountryId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -416,14 +437,14 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.TeamSeasonLeague", b =>
                 {
-                    b.Property<string>("TeamId")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("TeamId")
+                        .HasColumnType("int");
 
-                    b.Property<string>("SeasonId")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("SeasonId")
+                        .HasColumnType("int");
 
-                    b.Property<string>("LeagueId")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("LeagueId")
+                        .HasColumnType("int");
 
                     b.HasKey("TeamId", "SeasonId", "LeagueId");
 

@@ -35,7 +35,7 @@ public class LeaguesController : BaseApiController
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(LeagueDto), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]
-    public async Task<IActionResult> GetById(string id)
+    public async Task<IActionResult> GetById(int id)
     {
         var result = await _leagueService.GetByIdAsync(id);
         return HandleResult(result);
@@ -74,7 +74,7 @@ public class LeaguesController : BaseApiController
     [HttpDelete("{id}")]
     [ProducesResponseType(typeof(bool), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]
-    public async Task<IActionResult> Delete(string id)
+    public async Task<IActionResult> Delete(int id)
     {
         var result = await _leagueService.DeleteAsync(id);
         return HandleResult(result);

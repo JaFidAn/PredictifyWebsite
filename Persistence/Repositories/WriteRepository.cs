@@ -5,7 +5,7 @@ using Persistence.Contexts;
 
 namespace Persistence.Repositories;
 
-public class WriteRepository<T> : IWriteRepository<T> where T : BaseEntity
+public class WriteRepository<T, TKey> : IWriteRepository<T, TKey> where T : BaseEntity<TKey>
 {
     private readonly ApplicationDbContext _context;
 
@@ -44,7 +44,7 @@ public class WriteRepository<T> : IWriteRepository<T> where T : BaseEntity
         return true;
     }
 
-    public async Task<bool> RemoveAsync(string id)
+    public async Task<bool> RemoveAsync(TKey id)
     {
         var entity = await GetByIdAsync(id);
         if (entity == null)
@@ -68,8 +68,8 @@ public class WriteRepository<T> : IWriteRepository<T> where T : BaseEntity
         return await _context.SaveChangesAsync();
     }
 
-    private async Task<T?> GetByIdAsync(string id)
+    private async Task<T?> GetByIdAsync(TKey id)
     {
-        return await _context.Set<T>().FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+        return await _context.Set<T>().FirstOrDefaultAsync(x => x.Id!.Equals(id) && !x.IsDeleted);
     }
 }

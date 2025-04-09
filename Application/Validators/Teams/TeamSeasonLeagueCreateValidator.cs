@@ -8,9 +8,11 @@ public class TeamSeasonLeagueCreateValidator : AbstractValidator<TeamSeasonLeagu
     public TeamSeasonLeagueCreateValidator()
     {
         RuleFor(x => x.SeasonId)
-            .NotEmpty().WithMessage("Season ID is required");
+            .NotEmpty().WithMessage("Season ID is required")
+            .GreaterThan(0).WithMessage("Id must be greater than zero");
 
         RuleFor(x => x.LeagueId)
-            .NotEmpty().WithMessage("League ID is required");
+            .NotEmpty().WithMessage("League ID is required")
+            .GreaterThan(0).WithMessage("Id must be greater than zero");
     }
 }

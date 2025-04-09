@@ -4,7 +4,7 @@ using Persistence.Contexts;
 
 namespace Persistence.Repositories.TeamRepositories;
 
-public class TeamWriteRepository : WriteRepository<Team>, ITeamWriteRepository
+public class TeamWriteRepository : WriteRepository<Team, int>, ITeamWriteRepository
 {
     private readonly ApplicationDbContext _context;
 

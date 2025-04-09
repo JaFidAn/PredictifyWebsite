@@ -7,8 +7,8 @@ namespace Application.Services;
 public interface ISeasonService
 {
     Task<Result<PagedResult<SeasonDto>>> GetAllAsync(SeasonFilterParams filters, CancellationToken cancellationToken);
-    Task<Result<SeasonDto>> GetByIdAsync(string id);
+    Task<Result<SeasonDto>> GetByIdAsync(int id);
     Task<Result<SeasonDto>> CreateAsync(CreateSeasonDto dto);
     Task<Result<bool>> UpdateAsync(UpdateSeasonDto dto);
-    Task<Result<bool>> DeleteAsync(string id);
+    Task<Result<bool>> DeleteAsync(int id);
 }

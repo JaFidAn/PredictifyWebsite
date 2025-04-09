@@ -37,7 +37,7 @@ public class CountriesController : BaseApiController
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(CountryDto), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]
-    public async Task<IActionResult> GetById(string id)
+    public async Task<IActionResult> GetById(int id)
     {
         var result = await _countryService.GetByIdAsync(id);
         return HandleResult(result);
@@ -79,7 +79,7 @@ public class CountriesController : BaseApiController
     [HttpDelete("{id}")]
     [ProducesResponseType(typeof(bool), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]
-    public async Task<IActionResult> Delete(string id)
+    public async Task<IActionResult> Delete(int id)
     {
         var result = await _countryService.DeleteAsync(id);
         return HandleResult(result);

@@ -6,7 +6,7 @@ using System.Linq.Expressions;
 
 namespace Persistence.Repositories;
 
-public class ReadRepository<T> : IReadRepository<T> where T : BaseEntity
+public class ReadRepository<T, TKey> : IReadRepository<T, TKey> where T : BaseEntity<TKey>
 {
     private readonly ApplicationDbContext _context;
 
@@ -35,8 +35,8 @@ public class ReadRepository<T> : IReadRepository<T> where T : BaseEntity
         return await GetWhere(method).FirstOrDefaultAsync();
     }
 
-    public async Task<T?> GetByIdAsync(string id)
+    public async Task<T?> GetByIdAsync(TKey id)
     {
-        return await _context.Set<T>().Where(x => !x.IsDeleted && x.Id == id).FirstOrDefaultAsync();
+        return await _context.Set<T>().FirstOrDefaultAsync(x => !x.IsDeleted && x.Id!.Equals(id));
     }
 }

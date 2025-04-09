@@ -8,7 +8,8 @@ public class UpdateTeamValidator : AbstractValidator<UpdateTeamDto>
     public UpdateTeamValidator()
     {
         RuleFor(x => x.Id)
-            .NotEmpty().WithMessage("Team ID is required");
+            .NotEmpty().WithMessage("Team ID is required")
+            .GreaterThan(0).WithMessage("Id must be greater than zero");
 
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Team name is required")

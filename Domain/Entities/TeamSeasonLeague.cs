@@ -2,12 +2,12 @@ namespace Domain.Entities;
 
 public class TeamSeasonLeague
 {
-    public string TeamId { get; set; } = null!;
+    public int TeamId { get; set; }
     public Team Team { get; set; } = null!;
 
-    public string SeasonId { get; set; } = null!;
+    public int SeasonId { get; set; }
     public Season Season { get; set; } = null!;
 
-    public string LeagueId { get; set; } = null!;
+    public int LeagueId { get; set; }
     public League League { get; set; } = null!;
 }

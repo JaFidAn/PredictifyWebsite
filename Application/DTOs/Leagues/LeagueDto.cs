@@ -2,8 +2,8 @@ namespace Application.DTOs.Leagues;
 
 public class LeagueDto
 {
-    public string Id { get; set; } = null!;
+    public int Id { get; set; }
     public string Name { get; set; } = null!;
-    public string CountryId { get; set; } = null!;
-    public string CompetitionId { get; set; } = null!;
+    public int CountryId { get; set; }
+    public int CompetitionId { get; set; }
 }

@@ -8,7 +8,6 @@ using Application.Utilities;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Domain.Entities;
-using Microsoft.EntityFrameworkCore;
 
 namespace Persistence.Services;
 
@@ -31,7 +30,7 @@ public class CompetitionService : ICompetitionService
         _mapper = mapper;
     }
 
-    public async Task<Result<CompetitionDto>> GetByIdAsync(string id)
+    public async Task<Result<CompetitionDto>> GetByIdAsync(int id)
     {
         var competition = await _readRepository.GetByIdAsync(id);
         if (competition == null || competition.IsDeleted)
@@ -122,7 +121,7 @@ public class CompetitionService : ICompetitionService
         }
     }
 
-    public async Task<Result<bool>> DeleteAsync(string id)
+    public async Task<Result<bool>> DeleteAsync(int id)
     {
         await _unitOfWork.BeginTransactionAsync();
 

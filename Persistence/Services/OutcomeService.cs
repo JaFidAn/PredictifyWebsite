@@ -30,7 +30,7 @@ public class OutcomeService : IOutcomeService
         _mapper = mapper;
     }
 
-    public async Task<Result<OutcomeDto>> GetByIdAsync(string id)
+    public async Task<Result<OutcomeDto>> GetByIdAsync(int id)
     {
         var outcome = await _readRepository.GetByIdAsync(id);
         if (outcome == null || outcome.IsDeleted)
@@ -117,7 +117,7 @@ public class OutcomeService : IOutcomeService
         }
     }
 
-    public async Task<Result<bool>> DeleteAsync(string id)
+    public async Task<Result<bool>> DeleteAsync(int id)
     {
         await _unitOfWork.BeginTransactionAsync();
 

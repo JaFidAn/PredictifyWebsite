@@ -4,7 +4,7 @@ namespace Application.Params;
 
 public class LeagueFilterParams : PaginationParams
 {
-    public string? CountryId { get; set; }
-    public string? CompetitionId { get; set; }
+    public int? CountryId { get; set; }
+    public int? CompetitionId { get; set; }
     public string? Name { get; set; }
 }

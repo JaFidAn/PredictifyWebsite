@@ -12,7 +12,8 @@ public class CreateTeamValidator : AbstractValidator<CreateTeamDto>
             .MaximumLength(150).WithMessage("Team name must not exceed 150 characters");
 
         RuleFor(x => x.CountryId)
-            .NotEmpty().WithMessage("Country ID is required");
+            .NotEmpty().WithMessage("Country ID is required")
+            .GreaterThan(0).WithMessage("Id must be greater than zero");
 
         RuleForEach(x => x.TeamSeasonLeagues)
             .SetValidator(new TeamSeasonLeagueCreateValidator());

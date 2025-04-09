@@ -1,14 +1,14 @@
 using Application.Core;
 using Application.DTOs.Leagues;
 using Application.Params;
-using Application.Repositories.LeagueRepositories;
+using Application.Repositories;
 using Application.Repositories.CompetitionRepositories;
+using Application.Repositories.LeagueRepositories;
 using Application.Services;
 using Application.Utilities;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Domain.Entities;
-using Application.Repositories;
 
 namespace Persistence.Services;
 
@@ -34,7 +34,7 @@ public class LeagueService : ILeagueService
         _mapper = mapper;
     }
 
-    public async Task<Result<LeagueDto>> GetByIdAsync(string id)
+    public async Task<Result<LeagueDto>> GetByIdAsync(int id)
     {
         var league = await _readRepository.GetByIdAsync(id);
         if (league == null || league.IsDeleted)
@@ -48,11 +48,11 @@ public class LeagueService : ILeagueService
     {
         var query = _readRepository.GetAll();
 
-        if (!string.IsNullOrWhiteSpace(filters.CountryId))
-            query = query.Where(x => x.CountryId == filters.CountryId);
+        if (filters.CountryId.HasValue)
+            query = query.Where(x => x.CountryId == filters.CountryId.Value);
 
-        if (!string.IsNullOrWhiteSpace(filters.CompetitionId))
-            query = query.Where(x => x.CompetitionId == filters.CompetitionId);
+        if (filters.CompetitionId.HasValue)
+            query = query.Where(x => x.CompetitionId == filters.CompetitionId.Value);
 
         if (!string.IsNullOrWhiteSpace(filters.Name))
             query = query.Where(x => x.Name.ToLower().Contains(filters.Name.ToLower()));
@@ -85,9 +85,9 @@ public class LeagueService : ILeagueService
 
             var league = _mapper.Map<League>(dto);
 
-            if (!string.IsNullOrWhiteSpace(dto.CompetitionId))
+            if (dto.CompetitionId.HasValue)
             {
-                league.CompetitionId = dto.CompetitionId;
+                league.CompetitionId = dto.CompetitionId.Value;
             }
             else
             {
@@ -137,6 +137,7 @@ public class LeagueService : ILeagueService
 
             _mapper.Map(dto, league);
             _writeRepository.Update(league);
+
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitAsync();
 
@@ -149,7 +150,7 @@ public class LeagueService : ILeagueService
         }
     }
 
-    public async Task<Result<bool>> DeleteAsync(string id)
+    public async Task<Result<bool>> DeleteAsync(int id)
     {
         await _unitOfWork.BeginTransactionAsync();
 
@@ -161,6 +162,7 @@ public class LeagueService : ILeagueService
 
             league.IsDeleted = true;
             _writeRepository.Update(league);
+
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitAsync();
 

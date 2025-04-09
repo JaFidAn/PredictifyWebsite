@@ -4,7 +4,7 @@ using Persistence.Contexts;
 
 namespace Persistence.Repositories.AuditRepositories;
 
-public class AuditLogWriteRepository : WriteRepository<AuditLog>, IAuditLogWriteRepository
+public class AuditLogWriteRepository : WriteRepository<AuditLog, int>, IAuditLogWriteRepository
 {
     public AuditLogWriteRepository(ApplicationDbContext context) : base(context) { }
 }
