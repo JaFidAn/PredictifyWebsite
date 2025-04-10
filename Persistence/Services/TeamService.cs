@@ -44,9 +44,9 @@ public class TeamService : ITeamService
             var team = _mapper.Map<Team>(dto);
 
             await _writeRepository.AddAsync(team);
-            await _unitOfWork.SaveChangesAsync(); // team.Id burada yaranır
+            await _unitOfWork.SaveChangesAsync();
 
-            team.TeamSeasonLeagues = BuildTeamSeasonLeagues(team.Id, dto.TeamSeasonLeagues);
+            team.TeamSeasonLeagues = BuildTeamSeasonLeagues(team.Id, dto.SeasonId, dto.LeagueId);
 
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitAsync();
@@ -83,7 +83,7 @@ public class TeamService : ITeamService
             _writeRepository.RemoveTeamSeasonLeagues(team);
             _mapper.Map(dto, team);
 
-            team.TeamSeasonLeagues = BuildTeamSeasonLeagues(team.Id, dto.TeamSeasonLeagues);
+            team.TeamSeasonLeagues = BuildTeamSeasonLeagues(team.Id, dto.SeasonId, dto.LeagueId);
 
             _writeRepository.Update(team);
             await _unitOfWork.SaveChangesAsync();
@@ -175,16 +175,16 @@ public class TeamService : ITeamService
         return Result<PagedResult<TeamDto>>.Success(pagedResult);
     }
 
-    private static List<TeamSeasonLeague> BuildTeamSeasonLeagues(int teamId, List<TeamSeasonLeagueCreateDto> items)
+    private static List<TeamSeasonLeague> BuildTeamSeasonLeagues(int teamId, int seasonId, int leagueId)
     {
-        return items
-            .DistinctBy(x => new { x.SeasonId, x.LeagueId })
-            .Select(x => new TeamSeasonLeague
+        return new List<TeamSeasonLeague>
+        {
+            new TeamSeasonLeague
             {
                 TeamId = teamId,
-                SeasonId = x.SeasonId,
-                LeagueId = x.LeagueId
-            })
-            .ToList();
+                SeasonId = seasonId,
+                LeagueId = leagueId
+            }
+        };
     }
 }

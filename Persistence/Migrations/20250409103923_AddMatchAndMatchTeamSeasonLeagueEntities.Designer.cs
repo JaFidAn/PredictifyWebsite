@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Persistence.Contexts;
 
@@ -11,9 +12,11 @@ using Persistence.Contexts;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250409103923_AddMatchAndMatchTeamSeasonLeagueEntities")]
+    partial class AddMatchAndMatchTeamSeasonLeagueEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -333,26 +336,6 @@ namespace Persistence.Migrations
                     b.ToTable("Matches");
                 });
 
-            modelBuilder.Entity("Domain.Entities.MatchOutcome", b =>
-                {
-                    b.Property<int>("MatchId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TeamId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("OutcomeId")
-                        .HasColumnType("int");
-
-                    b.HasKey("MatchId", "TeamId", "OutcomeId");
-
-                    b.HasIndex("OutcomeId");
-
-                    b.HasIndex("TeamId");
-
-                    b.ToTable("MatchOutcome");
-                });
-
             modelBuilder.Entity("Domain.Entities.MatchTeamSeasonLeague", b =>
                 {
                     b.Property<int>("MatchId")
@@ -386,11 +369,6 @@ namespace Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -416,9 +394,6 @@ namespace Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -727,33 +702,6 @@ namespace Persistence.Migrations
                     b.Navigation("Team2");
                 });
 
-            modelBuilder.Entity("Domain.Entities.MatchOutcome", b =>
-                {
-                    b.HasOne("Domain.Entities.Match", "Match")
-                        .WithMany("Outcomes")
-                        .HasForeignKey("MatchId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Domain.Entities.Outcome", "Outcome")
-                        .WithMany("MatchOutcomes")
-                        .HasForeignKey("OutcomeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Domain.Entities.Team", "Team")
-                        .WithMany()
-                        .HasForeignKey("TeamId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Match");
-
-                    b.Navigation("Outcome");
-
-                    b.Navigation("Team");
-                });
-
             modelBuilder.Entity("Domain.Entities.MatchTeamSeasonLeague", b =>
                 {
                     b.HasOne("Domain.Entities.League", "League")
@@ -891,13 +839,6 @@ namespace Persistence.Migrations
             modelBuilder.Entity("Domain.Entities.Match", b =>
                 {
                     b.Navigation("MatchTeamSeasonLeagues");
-
-                    b.Navigation("Outcomes");
-                });
-
-            modelBuilder.Entity("Domain.Entities.Outcome", b =>
-                {
-                    b.Navigation("MatchOutcomes");
                 });
 
             modelBuilder.Entity("Domain.Entities.Season", b =>

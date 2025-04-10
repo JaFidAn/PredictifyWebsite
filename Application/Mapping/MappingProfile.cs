@@ -2,6 +2,9 @@ using Application.DTOs.AuditLogs;
 using Application.DTOs.Competitions;
 using Application.DTOs.Countries;
 using Application.DTOs.Leagues;
+using Application.DTOs.Matches;
+using Application.DTOs.MatchOutcomes;
+using Application.DTOs.MatchTeamSeasonLeagues;
 using Application.DTOs.Outcomes;
 using Application.DTOs.Seasons;
 using Application.DTOs.Teams;
@@ -45,7 +48,6 @@ public class MappingProfile : Profile
         // ✅ Team
         CreateMap<CreateTeamDto, Team>();
         CreateMap<UpdateTeamDto, Team>();
-
         CreateMap<Team, TeamDto>()
             .ForMember(dest => dest.CountryName, opt => opt.MapFrom(src => src.Country.Name));
 
@@ -54,6 +56,21 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.SeasonName, opt => opt.MapFrom(src => src.Season.Name))
             .ForMember(dest => dest.LeagueName, opt => opt.MapFrom(src => src.League.Name));
 
-        CreateMap<TeamSeasonLeagueCreateDto, TeamSeasonLeague>();
+        // ✅ Match
+        CreateMap<CreateMatchDto, Match>();
+        CreateMap<UpdateMatchDto, Match>();
+        CreateMap<Match, MatchDto>()
+            .ForMember(dest => dest.Team1Name, opt => opt.MapFrom(src => src.Team1.Name))
+            .ForMember(dest => dest.Team2Name, opt => opt.MapFrom(src => src.Team2.Name));
+
+        // ✅ MatchTeamSeasonLeague
+        CreateMap<MatchTeamSeasonLeague, MatchTeamSeasonLeagueDto>()
+            .ForMember(dest => dest.SeasonName, opt => opt.MapFrom(src => src.Season.Name))
+            .ForMember(dest => dest.LeagueName, opt => opt.MapFrom(src => src.League.Name));
+
+        // ✅ MatchOutcome
+        CreateMap<MatchOutcome, MatchOutcomeDto>()
+            .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Team.Name))
+            .ForMember(dest => dest.OutcomeName, opt => opt.MapFrom(src => src.Outcome.Name));
     }
 }
