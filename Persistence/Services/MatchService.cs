@@ -19,6 +19,7 @@ public class MatchService : IMatchService
     private readonly IMatchReadRepository _readRepository;
     private readonly IMatchWriteRepository _writeRepository;
     private readonly IOutcomeReadRepository _outcomeReadRepository;
+    private readonly ITeamOutcomeStreakService _streakService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
 
@@ -26,12 +27,14 @@ public class MatchService : IMatchService
         IMatchReadRepository readRepository,
         IMatchWriteRepository writeRepository,
         IOutcomeReadRepository outcomeReadRepository,
+        ITeamOutcomeStreakService streakService,
         IUnitOfWork unitOfWork,
         IMapper mapper)
     {
         _readRepository = readRepository;
         _writeRepository = writeRepository;
         _outcomeReadRepository = outcomeReadRepository;
+        _streakService = streakService;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
     }
@@ -57,12 +60,20 @@ public class MatchService : IMatchService
             await _writeRepository.AddAsync(match);
             await _unitOfWork.SaveChangesAsync();
 
-            match.MatchTeamSeasonLeagues = BuildMatchTeamSeasonLeagues(match.Id, dto.Team1Id, dto.Team2Id, dto.SeasonId, dto.LeagueId);
+            match.MatchTeamSeasonLeagues = BuildMatchTeamSeasonLeagues(
+                match.Id, dto.Team1Id, dto.Team2Id, dto.SeasonId, dto.LeagueId);
 
             var outcomes = await _outcomeReadRepository.GetAll().ToListAsync();
             match.Outcomes = OutcomeDeterminationHelper.DetermineOutcomes(match, outcomes);
 
             await _unitOfWork.SaveChangesAsync();
+
+            if (match.IsCompleted)
+            {
+                await _streakService.RecalculateStreaksForMatchAsync(match.Id);
+                await _unitOfWork.SaveChangesAsync();
+            }
+
             await _unitOfWork.CommitAsync();
 
             var resultDto = await GetByIdAsync(match.Id);
@@ -97,15 +108,22 @@ public class MatchService : IMatchService
             _writeRepository.RemoveMatchTeamSeasonLeagues(match);
             _writeRepository.RemoveMatchOutcomes(match);
 
-            match.MatchTeamSeasonLeagues = BuildMatchTeamSeasonLeagues(match.Id, dto.Team1Id, dto.Team2Id, dto.SeasonId, dto.LeagueId);
+            match.MatchTeamSeasonLeagues = BuildMatchTeamSeasonLeagues(
+                match.Id, dto.Team1Id, dto.Team2Id, dto.SeasonId, dto.LeagueId);
 
             var outcomes = await _outcomeReadRepository.GetAll().ToListAsync();
             match.Outcomes = OutcomeDeterminationHelper.DetermineOutcomes(match, outcomes);
 
             _writeRepository.Update(match);
             await _unitOfWork.SaveChangesAsync();
-            await _unitOfWork.CommitAsync();
 
+            if (match.IsCompleted)
+            {
+                await _streakService.RecalculateStreaksForMatchAsync(match.Id);
+                await _unitOfWork.SaveChangesAsync();
+            }
+
+            await _unitOfWork.CommitAsync();
             return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("Match"));
         }
         catch
@@ -152,14 +170,10 @@ public class MatchService : IMatchService
         var match = await _readRepository.GetAll()
             .Include(x => x.Team1)
             .Include(x => x.Team2)
-            .Include(x => x.MatchTeamSeasonLeagues)
-                .ThenInclude(x => x.Season)
-            .Include(x => x.MatchTeamSeasonLeagues)
-                .ThenInclude(x => x.League)
-            .Include(x => x.Outcomes)
-                .ThenInclude(x => x.Outcome)
-            .Include(x => x.Outcomes)
-                .ThenInclude(x => x.Team)
+            .Include(x => x.MatchTeamSeasonLeagues).ThenInclude(x => x.Season)
+            .Include(x => x.MatchTeamSeasonLeagues).ThenInclude(x => x.League)
+            .Include(x => x.Outcomes).ThenInclude(x => x.Outcome)
+            .Include(x => x.Outcomes).ThenInclude(x => x.Team)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (match == null || match.IsDeleted)
@@ -174,9 +188,7 @@ public class MatchService : IMatchService
         var query = _readRepository.GetAll();
 
         if (filters.TeamId.HasValue)
-        {
             query = query.Where(x => x.Team1Id == filters.TeamId || x.Team2Id == filters.TeamId);
-        }
 
         query = query.OrderByDescending(x => x.MatchDate);
 

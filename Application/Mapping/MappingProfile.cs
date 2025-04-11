@@ -7,6 +7,7 @@ using Application.DTOs.MatchOutcomes;
 using Application.DTOs.MatchTeamSeasonLeagues;
 using Application.DTOs.Outcomes;
 using Application.DTOs.Seasons;
+using Application.DTOs.TeamOutcomeStreaks;
 using Application.DTOs.Teams;
 using AutoMapper;
 using Domain.Entities;
@@ -72,5 +73,13 @@ public class MappingProfile : Profile
         CreateMap<MatchOutcome, MatchOutcomeDto>()
             .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Team.Name))
             .ForMember(dest => dest.OutcomeName, opt => opt.MapFrom(src => src.Outcome.Name));
+
+        // ✅ TeamOutcomeStreak
+        CreateMap<TeamOutcomeStreak, TeamOutcomeStreakDto>()
+            .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Team.Name))
+            .ForMember(dest => dest.OutcomeName, opt => opt.MapFrom(src => src.Outcome.Name));
+
+        CreateMap<CreateTeamOutcomeStreakDto, TeamOutcomeStreak>();
+        CreateMap<UpdateTeamOutcomeStreakDto, TeamOutcomeStreak>();
     }
 }

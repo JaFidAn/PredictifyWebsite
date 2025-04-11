@@ -536,6 +536,56 @@ namespace Persistence.Migrations
                     b.ToTable("Teams");
                 });
 
+            modelBuilder.Entity("Domain.Entities.TeamOutcomeStreak", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("MatchDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OutcomeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StreakCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeamId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MatchId");
+
+                    b.HasIndex("OutcomeId");
+
+                    b.HasIndex("TeamId", "OutcomeId", "MatchId")
+                        .IsUnique();
+
+                    b.ToTable("TeamOutcomeStreaks");
+                });
+
             modelBuilder.Entity("Domain.Entities.TeamSeasonLeague", b =>
                 {
                     b.Property<int>("TeamId")
@@ -798,6 +848,33 @@ namespace Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Country");
+                });
+
+            modelBuilder.Entity("Domain.Entities.TeamOutcomeStreak", b =>
+                {
+                    b.HasOne("Domain.Entities.Match", "Match")
+                        .WithMany()
+                        .HasForeignKey("MatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Outcome", "Outcome")
+                        .WithMany()
+                        .HasForeignKey("OutcomeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Team", "Team")
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Match");
+
+                    b.Navigation("Outcome");
+
+                    b.Navigation("Team");
                 });
 
             modelBuilder.Entity("Domain.Entities.TeamSeasonLeague", b =>
