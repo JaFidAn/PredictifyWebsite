@@ -2,6 +2,6 @@ using Domain.Entities;
 
 namespace Application.Repositories.CountryRepositories;
 
-public interface ICountryWriteRepository : IWriteRepository<Country>
+public interface ICountryWriteRepository : IWriteRepository<Country, int>
 {
 }

@@ -8,7 +8,8 @@ public class UpdateCountryValidator : AbstractValidator<UpdateCountryDto>
     public UpdateCountryValidator()
     {
         RuleFor(x => x.Id)
-            .NotEmpty().WithMessage("Id is required");
+            .NotEmpty().WithMessage("Id is required")
+            .GreaterThan(0).WithMessage("Id must be greater than zero");
 
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Name is required")

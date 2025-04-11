@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Application.Core;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,12 +25,32 @@ public class ExceptionMiddleware(ILogger<ExceptionMiddleware> logger, IHostEnvir
     private async Task HandleException(HttpContext context, Exception ex)
     {
         logger.LogError(ex, ex.Message);
+
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 
-        var response = env.IsDevelopment()
-            ? new AppException(context.Response.StatusCode, ex.Message, ex.StackTrace)
-            : new AppException(context.Response.StatusCode, ex.Message, null);
+        string? innerMessage = ex.InnerException?.Message;
+
+        object response;
+
+        if (env.IsDevelopment())
+        {
+            response = new
+            {
+                statusCode = context.Response.StatusCode,
+                message = ex.Message,
+                innerMessage,
+                stackTrace = ex.StackTrace
+            };
+        }
+        else
+        {
+            response = new
+            {
+                statusCode = context.Response.StatusCode,
+                message = "An internal server error occurred"
+            };
+        }
 
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
@@ -39,6 +58,7 @@ public class ExceptionMiddleware(ILogger<ExceptionMiddleware> logger, IHostEnvir
 
         await context.Response.WriteAsync(json);
     }
+
 
     private static async Task HandleValidationException(HttpContext context, ValidationException ex)
     {
@@ -66,7 +86,7 @@ public class ExceptionMiddleware(ILogger<ExceptionMiddleware> logger, IHostEnvir
             Status = StatusCodes.Status400BadRequest,
             Type = "ValidationFailure",
             Title = "Validation error",
-            Detail = "One or more validation errors has occured"
+            Detail = "One or more validation errors has occurred"
         };
 
         await context.Response.WriteAsJsonAsync(validationProblemDetails);

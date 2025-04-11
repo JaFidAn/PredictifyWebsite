@@ -2,7 +2,7 @@ namespace Application.DTOs.AuditLogs;
 
 public class AuditLogDto
 {
-    public string Id { get; set; } = null!;
+    public int Id { get; set; }
     public string? UserId { get; set; }
     public string Action { get; set; } = null!;
     public string TableName { get; set; } = null!;

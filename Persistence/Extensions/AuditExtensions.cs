@@ -8,16 +8,21 @@ namespace Persistence.Extensions;
 
 public static class AuditExtensions
 {
-    public static List<AuditLog> GenerateAuditLogs(this ChangeTracker changeTracker, string? userId, string? ipAddress, string? browserInfo, string? endpoint)
+    public static List<AuditLog> GenerateAuditLogs(
+        this ChangeTracker changeTracker,
+        string? userId,
+        string? ipAddress,
+        string? browserInfo,
+        string? endpoint)
     {
         var auditLogs = new List<AuditLog>();
         var now = DateTime.UtcNow;
 
         foreach (var entry in changeTracker.Entries().Where(e =>
-                     e.Entity is BaseEntity &&
+                     e.Entity is BaseEntity<int> &&
                      (e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted)))
         {
-            var entity = (BaseEntity)entry.Entity;
+            var entity = (BaseEntity<int>)entry.Entity;
 
             entity.UpdatedAt = now;
             entity.UpdatedBy = userId;
@@ -32,17 +37,16 @@ public static class AuditExtensions
                 p.Metadata.IsPrimaryKey() && p.Metadata.Name.Equals("Id", StringComparison.OrdinalIgnoreCase));
 
             var recordId = idProp?.CurrentValue?.ToString()
-                         ?? entry.OriginalValues.Properties
-                                .Where(p => p.Name.Equals("Id", StringComparison.OrdinalIgnoreCase))
-                                .Select(p => entry.OriginalValues[p.Name]?.ToString())
-                                .FirstOrDefault()
-                         ?? Guid.NewGuid().ToString();
+                ?? entry.OriginalValues.Properties
+                        .Where(p => p.Name.Equals("Id", StringComparison.OrdinalIgnoreCase))
+                        .Select(p => entry.OriginalValues[p.Name]?.ToString())
+                        .FirstOrDefault()
+                ?? "Unknown";
 
             var tableName = entry.Metadata.GetTableName() ?? entry.Entity.GetType().Name;
 
             var auditLog = new AuditLog
             {
-                Id = Guid.NewGuid().ToString(),
                 Action = entry.State switch
                 {
                     EntityState.Added => "Create",

@@ -2,7 +2,7 @@ using Domain.Entities.Common;
 
 namespace Domain.Entities;
 
-public class AuditLog : BaseEntity
+public class AuditLog : BaseEntity<int>
 {
     public string UserId { get; set; } = null!;
     public string Action { get; set; } = null!;
@@ -11,7 +11,6 @@ public class AuditLog : BaseEntity
     public string? OldValues { get; set; }
     public string? NewValues { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-
     public string? IPAddress { get; set; }
     public string? BrowserInfo { get; set; }
     public string? Endpoint { get; set; }
