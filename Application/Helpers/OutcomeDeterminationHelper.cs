@@ -52,6 +52,65 @@ public static class OutcomeDeterminationHelper
         return result;
     }
 
+    public static List<int> DetermineOutcomesForTeam(Match match, List<Outcome> outcomes, int teamId)
+    {
+        var result = new List<int>();
+
+        foreach (var outcome in outcomes)
+        {
+            switch (outcome.Code.ToUpper())
+            {
+                case SD.WIN:
+                    if (match.Team1Goals > match.Team2Goals && match.Team1Id == teamId)
+                    {
+                        result.Add(outcome.Id);
+                    }
+                    if (match.Team2Goals > match.Team1Goals && match.Team2Id == teamId)
+                    {
+                        result.Add(outcome.Id);
+                    }
+                    break;
+
+                case SD.LOSE:
+                    if (match.Team1Goals < match.Team2Goals && match.Team1Id == teamId)
+                    {
+                        result.Add(outcome.Id);
+                    }
+                    if (match.Team2Goals < match.Team1Goals && match.Team2Id == teamId)
+                    {
+                        result.Add(outcome.Id);
+                    }
+                    break;
+
+                case SD.DRAW:
+                    if (match.Team1Goals == match.Team2Goals &&
+                        (match.Team1Id == teamId || match.Team2Id == teamId))
+                    {
+                        result.Add(outcome.Id);
+                    }
+                    break;
+
+                case SD.OVER_2_5:
+                    if ((match.Team1Goals + match.Team2Goals) > 2 &&
+                        (match.Team1Id == teamId || match.Team2Id == teamId))
+                    {
+                        result.Add(outcome.Id);
+                    }
+                    break;
+
+                case SD.UNDER_2_5:
+                    if ((match.Team1Goals + match.Team2Goals) <= 2 &&
+                        (match.Team1Id == teamId || match.Team2Id == teamId))
+                    {
+                        result.Add(outcome.Id);
+                    }
+                    break;
+            }
+        }
+
+        return result;
+    }
+
     private static void AddOutcomeIf(Match match, List<MatchOutcome> result, Outcome outcome, bool condition, int teamId)
     {
         if (condition)
