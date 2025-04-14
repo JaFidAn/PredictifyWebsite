@@ -95,7 +95,7 @@ builder.Services.AddTransient<ExceptionMiddleware>();
 var app = builder.Build();
 
 // ✅ Swagger
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Environment.IsProduction())
 {
     app.UseSwaggerDocumentation();
 }
