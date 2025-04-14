@@ -12,4 +12,5 @@ public interface ITeamOutcomeStreakService
     Task<Result<bool>> RecalculateAllAsync();
     Task<Result<bool>> RecalculateStreaksForTeamAsync(int teamId);
     Task<Result<bool>> RecalculateStreaksUpToMatchAsync(int teamId, int matchId);
+    Task<Result<List<TeamOutcomeStreakDto>>> GetByTeamIdAsync(int teamId, CancellationToken cancellationToken);
 }

@@ -40,6 +40,18 @@ public class TeamOutcomeStreaksController : BaseApiController
     }
 
     /// <summary>
+    /// Get all streaks for a specific team, ordered by MatchDate descending
+    /// </summary>
+    [HttpGet("by-team/{teamId}")]
+    [ProducesResponseType(typeof(List<TeamOutcomeStreakDto>), 200)]
+    [ProducesResponseType(typeof(ProblemDetails), 404)]
+    public async Task<IActionResult> GetByTeamId(int teamId, CancellationToken cancellationToken)
+    {
+        var result = await _streakService.GetByTeamIdAsync(teamId, cancellationToken);
+        return HandleResult(result);
+    }
+
+    /// <summary>
     /// Recalculate streaks for a specific match
     /// </summary>
     [HttpPost("recalculate/{matchId}")]

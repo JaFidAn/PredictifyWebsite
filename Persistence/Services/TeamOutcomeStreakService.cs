@@ -167,4 +167,18 @@ public class TeamOutcomeStreakService : ITeamOutcomeStreakService
 
         await _unitOfWork.SaveChangesAsync();
     }
+    
+    public async Task<Result<List<TeamOutcomeStreakDto>>> GetByTeamIdAsync(int teamId, CancellationToken cancellationToken)
+    {
+        var streaks = await _readRepository.GetByTeamIdAsync(teamId, cancellationToken);
+
+        if (streaks.Count == 0)
+        {
+            return Result<List<TeamOutcomeStreakDto>>.Failure("No streaks found for this team", 404);
+        }
+
+        var dtoList = _mapper.Map<List<TeamOutcomeStreakDto>>(streaks);
+        return Result<List<TeamOutcomeStreakDto>>.Success(dtoList);
+    }
+
 }
