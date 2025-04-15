@@ -559,8 +559,14 @@ namespace Persistence.Migrations
                     b.Property<int>("MatchId")
                         .HasColumnType("int");
 
+                    b.Property<int>("MaxStreak")
+                        .HasColumnType("int");
+
                     b.Property<int>("OutcomeId")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("Ratio")
+                        .HasColumnType("decimal(4,3)");
 
                     b.Property<int>("StreakCount")
                         .HasColumnType("int");

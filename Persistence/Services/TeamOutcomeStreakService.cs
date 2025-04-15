@@ -105,11 +105,11 @@ public class TeamOutcomeStreakService : ITeamOutcomeStreakService
 
             foreach (var teamId in teamIds)
             {
-                await RecalculateStreaksForTeamMatchAsync(teamId, match);
+                await RecalculateStreaksUpToMatchAsync(teamId, match.Id);
             }
 
             await _unitOfWork.CommitAsync();
-            return Result<bool>.Success(true, "Streaks calculated based on actual outcomes.");
+            return Result<bool>.Success(true, "Streaks recalculated based on actual outcomes.");
         }
         catch
         {
@@ -118,56 +118,123 @@ public class TeamOutcomeStreakService : ITeamOutcomeStreakService
         }
     }
 
-    public Task<Result<bool>> RecalculateAllAsync()
+    public async Task<Result<bool>> RecalculateAllAsync()
     {
-        throw new NotImplementedException();
-    }
+        await _unitOfWork.BeginTransactionAsync();
 
-    public Task<Result<bool>> RecalculateStreaksForTeamAsync(int teamId)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<Result<bool>> RecalculateStreaksUpToMatchAsync(int teamId, int matchId)
-    {
-        throw new NotImplementedException();
-    }
-
-    private async Task RecalculateStreaksForTeamMatchAsync(int teamId, Match match)
-    {
-        var allOutcomes = await _outcomeReadRepository.GetAll().ToListAsync();
-
-        // Real nəticəyə əsaslanan outcome-ları al
-        var applicableOutcomeIds = OutcomeDeterminationHelper
-            .DetermineOutcomesForTeam(match, allOutcomes, teamId)
-            .ToHashSet();
-
-        foreach (var outcome in allOutcomes)
+        try
         {
-            var lastStreak = await _readRepository.GetAll()
-                .Where(x => x.TeamId == teamId && x.OutcomeId == outcome.Id && x.MatchDate < match.MatchDate)
-                .OrderByDescending(x => x.MatchDate)
-                .FirstOrDefaultAsync();
+            var matches = await _matchReadRepository.GetAll()
+                .Where(x => x.IsCompleted && !x.IsDeleted)
+                .OrderBy(x => x.MatchDate)
+                .ToListAsync();
 
-            bool occurred = applicableOutcomeIds.Contains(outcome.Id);
+            var teamIds = matches.SelectMany(m => m.Outcomes.Select(o => o.TeamId)).Distinct();
 
-            int newStreakCount = occurred ? 0 : (lastStreak?.StreakCount + 1 ?? 1);
-
-            var newStreak = new TeamOutcomeStreak
+            foreach (var teamId in teamIds)
             {
-                TeamId = teamId,
-                OutcomeId = outcome.Id,
-                StreakCount = newStreakCount,
-                MatchId = match.Id,
-                MatchDate = match.MatchDate
-            };
+                await RecalculateStreaksUpToMatchAsync(teamId, int.MaxValue);
+            }
 
-            await _writeRepository.AddAsync(newStreak);
+            await _unitOfWork.CommitAsync();
+            return Result<bool>.Success(true, "All streaks recalculated.");
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<Result<bool>> RecalculateStreaksForTeamAsync(int teamId)
+    {
+        return await RecalculateStreaksUpToMatchAsync(teamId, int.MaxValue);
+    }
+
+    public async Task<Result<bool>> RecalculateStreaksUpToMatchAsync(int teamId, int matchId)
+{
+    await _unitOfWork.BeginTransactionAsync();
+
+    try
+    {
+        DateTime maxDate;
+
+        if (matchId == int.MaxValue)
+        {
+            maxDate = DateTime.MaxValue;
+        }
+        else
+        {
+            var targetMatch = await _matchReadRepository.GetByIdAsync(matchId);
+            if (targetMatch == null)
+            {
+                return Result<bool>.Failure("Match not found", 404);
+            }
+
+            maxDate = targetMatch.MatchDate;
+        }
+
+        var matches = await _matchReadRepository.GetAll()
+            .Where(x => x.IsCompleted && !x.IsDeleted && x.Outcomes.Any(o => o.TeamId == teamId) && x.MatchDate <= maxDate)
+            .OrderBy(x => x.MatchDate)
+            .ToListAsync();
+
+        await _writeRepository.RemoveRangeByTeamAndMatchDateAsync(teamId, maxDate);
+
+        var allOutcomes = await _outcomeReadRepository.GetAll().ToListAsync();
+        var streakTracker = new Dictionary<int, int>();
+        var maxTracker = new Dictionary<int, int>();
+
+        foreach (var match in matches)
+        {
+            var applicableOutcomeIds = OutcomeDeterminationHelper
+                .DetermineOutcomesForTeam(match, allOutcomes, teamId)
+                .ToHashSet();
+
+            foreach (var outcome in allOutcomes)
+            {
+                var outcomeId = outcome.Id;
+                var occurred = applicableOutcomeIds.Contains(outcomeId);
+
+                streakTracker.TryGetValue(outcomeId, out int prevStreak);
+                int newStreak = occurred ? 0 : prevStreak + 1;
+                streakTracker[outcomeId] = newStreak;
+
+                maxTracker.TryGetValue(outcomeId, out int maxSoFar);
+                if (newStreak > maxSoFar)
+                {
+                    maxSoFar = newStreak;
+                    maxTracker[outcomeId] = newStreak;
+                }
+
+                double ratio = maxSoFar > 0 ? Math.Round((double)newStreak / maxSoFar, 3) : 0;
+
+                await _writeRepository.AddAsync(new TeamOutcomeStreak
+                {
+                    TeamId = teamId,
+                    OutcomeId = outcomeId,
+                    MatchId = match.Id,
+                    MatchDate = match.MatchDate,
+                    StreakCount = newStreak,
+                    MaxStreak = maxSoFar,
+                    Ratio = ratio
+                });
+            }
         }
 
         await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.CommitAsync();
+
+        return Result<bool>.Success(true, $"Streaks recalculated for team {teamId} up to match {matchId}.");
     }
-    
+    catch
+    {
+        await _unitOfWork.RollbackAsync();
+        throw;
+    }
+}
+
+
     public async Task<Result<List<TeamOutcomeStreakDto>>> GetByTeamIdAsync(int teamId, CancellationToken cancellationToken)
     {
         var streaks = await _readRepository.GetByTeamIdAsync(teamId, cancellationToken);
@@ -180,5 +247,4 @@ public class TeamOutcomeStreakService : ITeamOutcomeStreakService
         var dtoList = _mapper.Map<List<TeamOutcomeStreakDto>>(streaks);
         return Result<List<TeamOutcomeStreakDto>>.Success(dtoList);
     }
-
 }

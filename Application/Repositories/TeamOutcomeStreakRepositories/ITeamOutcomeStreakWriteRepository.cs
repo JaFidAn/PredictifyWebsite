@@ -8,4 +8,5 @@ public interface ITeamOutcomeStreakWriteRepository : IWriteRepository<TeamOutcom
     Task RemoveAllByTeamIdAsync(int teamId);
     Task RemoveByMatchIdAsync(int matchId);
     Task RemoveByTeamAndOutcomeAsync(int teamId, int outcomeId);
+    Task RemoveRangeByTeamAndMatchDateAsync(int teamId, DateTime maxDate);
 }

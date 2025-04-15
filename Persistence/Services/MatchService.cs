@@ -48,11 +48,15 @@ public class MatchService : IMatchService
             if (dto.Team1Id == dto.Team2Id)
                 return Result<MatchDto>.Failure("A team cannot play against itself", 400);
 
-            var duplicate = await _readRepository.GetSingleAsync(x =>
-                x.Team1Id == dto.Team1Id && x.Team2Id == dto.Team2Id && x.MatchDate == dto.MatchDate);
+            var isBusyTeam = await _readRepository.GetAll()
+                .AnyAsync(x =>
+                    x.MatchDate == dto.MatchDate &&
+                    !x.IsDeleted &&
+                    (x.Team1Id == dto.Team1Id || x.Team2Id == dto.Team1Id ||
+                     x.Team1Id == dto.Team2Id || x.Team2Id == dto.Team2Id));
 
-            if (duplicate is not null)
-                return Result<MatchDto>.Failure(MessageGenerator.AlreadyExists("Match"), 409);
+            if (isBusyTeam)
+                return Result<MatchDto>.Failure("One of the teams already has a match on this date.", 409);
 
             var match = _mapper.Map<Match>(dto);
             match.IsCompleted = dto.Team1Goals.HasValue && dto.Team2Goals.HasValue;
@@ -88,49 +92,65 @@ public class MatchService : IMatchService
 
     public async Task<Result<bool>> UpdateAsync(UpdateMatchDto dto)
     {
-        await _unitOfWork.BeginTransactionAsync();
+    await _unitOfWork.BeginTransactionAsync();
 
-        try
+    try
+    {
+        var match = await _readRepository.GetAll()
+            .Include(x => x.MatchTeamSeasonLeagues)
+            .Include(x => x.Outcomes)
+            .FirstOrDefaultAsync(x => x.Id == dto.Id);
+
+        if (match == null || match.IsDeleted)
+            return Result<bool>.Failure(MessageGenerator.NotFound("Match"), 404);
+
+        var isBusyTeam = await _readRepository.GetAll()
+            .AnyAsync(x =>
+                x.Id != dto.Id &&
+                x.MatchDate == dto.MatchDate &&
+                !x.IsDeleted &&
+                (x.Team1Id == dto.Team1Id || x.Team2Id == dto.Team1Id ||
+                 x.Team1Id == dto.Team2Id || x.Team2Id == dto.Team2Id));
+
+        if (isBusyTeam)
+            return Result<bool>.Failure("One of the teams already has a match on this date.", 409);
+
+        match.MatchDate = dto.MatchDate;
+        match.Team1Goals = dto.Team1Goals;
+        match.Team2Goals = dto.Team2Goals;
+        match.IsCompleted = dto.Team1Goals.HasValue && dto.Team2Goals.HasValue;
+
+        _writeRepository.RemoveMatchTeamSeasonLeagues(match);
+        _writeRepository.RemoveMatchOutcomes(match);
+
+        match.MatchTeamSeasonLeagues = BuildMatchTeamSeasonLeagues(
+            match.Id, dto.Team1Id, dto.Team2Id, dto.SeasonId, dto.LeagueId);
+
+        var outcomes = await _outcomeReadRepository.GetAll().ToListAsync();
+        match.Outcomes = OutcomeDeterminationHelper.DetermineOutcomes(match, outcomes);
+
+        _writeRepository.Update(match);
+        await _unitOfWork.SaveChangesAsync();
+
+        if (match.IsCompleted)
         {
-            var match = await _readRepository.GetAll()
-                .Include(x => x.MatchTeamSeasonLeagues)
-                .Include(x => x.Outcomes)
-                .FirstOrDefaultAsync(x => x.Id == dto.Id);
-
-            if (match == null || match.IsDeleted)
-                return Result<bool>.Failure(MessageGenerator.NotFound("Match"), 404);
-
-            match.MatchDate = dto.MatchDate;
-            match.Team1Goals = dto.Team1Goals;
-            match.Team2Goals = dto.Team2Goals;
-            match.IsCompleted = dto.Team1Goals.HasValue && dto.Team2Goals.HasValue;
-
-            _writeRepository.RemoveMatchTeamSeasonLeagues(match);
-            _writeRepository.RemoveMatchOutcomes(match);
-
-            match.MatchTeamSeasonLeagues = BuildMatchTeamSeasonLeagues(
-                match.Id, dto.Team1Id, dto.Team2Id, dto.SeasonId, dto.LeagueId);
-
-            var outcomes = await _outcomeReadRepository.GetAll().ToListAsync();
-            match.Outcomes = OutcomeDeterminationHelper.DetermineOutcomes(match, outcomes);
-
-            _writeRepository.Update(match);
-            await _unitOfWork.SaveChangesAsync();
-
-            if (match.IsCompleted)
+            var teamIds = match.Outcomes.Select(x => x.TeamId).Distinct();
+            foreach (var teamId in teamIds)
             {
-                await _streakService.RecalculateStreaksForMatchAsync(match.Id);
-                await _unitOfWork.SaveChangesAsync();
+                await _streakService.RecalculateStreaksForTeamAsync(teamId);
             }
 
-            await _unitOfWork.CommitAsync();
-            return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("Match"));
+            await _unitOfWork.SaveChangesAsync();
         }
-        catch
-        {
-            await _unitOfWork.RollbackAsync();
-            throw;
-        }
+
+        await _unitOfWork.CommitAsync();
+        return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("Match"));
+    }
+    catch
+    {
+        await _unitOfWork.RollbackAsync();
+        throw;
+    }
     }
 
     public async Task<Result<bool>> DeleteAsync(int id)
@@ -147,11 +167,20 @@ public class MatchService : IMatchService
             if (match == null || match.IsDeleted)
                 return Result<bool>.Failure(MessageGenerator.NotFound("Match"), 404);
 
+            var teamIds = match.Outcomes.Select(x => x.TeamId).Distinct().ToList();
+
             _writeRepository.RemoveMatchTeamSeasonLeagues(match);
             _writeRepository.RemoveMatchOutcomes(match);
 
             match.IsDeleted = true;
             _writeRepository.Update(match);
+
+            await _unitOfWork.SaveChangesAsync();
+
+            foreach (var teamId in teamIds)
+            {
+                await _streakService.RecalculateStreaksForTeamAsync(teamId);
+            }
 
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitAsync();

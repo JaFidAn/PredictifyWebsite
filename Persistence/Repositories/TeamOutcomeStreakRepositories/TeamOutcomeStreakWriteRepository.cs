@@ -46,4 +46,13 @@ public class TeamOutcomeStreakWriteRepository : WriteRepository<TeamOutcomeStrea
 
         _context.TeamOutcomeStreaks.RemoveRange(toRemove);
     }
+    
+    public async Task RemoveRangeByTeamAndMatchDateAsync(int teamId, DateTime maxDate)
+    {
+        var toRemove = await _context.TeamOutcomeStreaks
+            .Where(x => x.TeamId == teamId && x.MatchDate <= maxDate)
+            .ToListAsync();
+
+        _context.TeamOutcomeStreaks.RemoveRange(toRemove);
+    }
 }
