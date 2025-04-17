@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Domain", "Domain\Domain.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Infrastructure", "Infrastructure\Infrastructure.csproj", "{BBB5C3EA-004B-4B02-A55C-0744A5D6630E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MLTrainer", "MLTrainer\MLTrainer.csproj", "{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,18 @@ Global
 		{BBB5C3EA-004B-4B02-A55C-0744A5D6630E}.Release|x64.Build.0 = Release|Any CPU
 		{BBB5C3EA-004B-4B02-A55C-0744A5D6630E}.Release|x86.ActiveCfg = Release|Any CPU
 		{BBB5C3EA-004B-4B02-A55C-0744A5D6630E}.Release|x86.Build.0 = Release|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Debug|x64.Build.0 = Debug|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Debug|x86.Build.0 = Debug|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Release|x64.ActiveCfg = Release|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Release|x64.Build.0 = Release|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Release|x86.ActiveCfg = Release|Any CPU
+		{3CDDDC0D-82BD-4941-9C98-7D82E0B9E3E7}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

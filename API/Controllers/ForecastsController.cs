@@ -8,12 +8,16 @@ namespace API.Controllers;
 public class ForecastsController : BaseApiController
 {
     private readonly IForecastService _forecastService;
+    private readonly IForecastAiService _forecastAiService;
 
-    public ForecastsController(IForecastService forecastService)
+    public ForecastsController(
+        IForecastService forecastService,
+        IForecastAiService forecastAiService)
     {
         _forecastService = forecastService;
+        _forecastAiService = forecastAiService;
     }
-    
+
     /// <summary>
     /// Get forecast summary for a specific match
     /// </summary>
@@ -37,6 +41,17 @@ public class ForecastsController : BaseApiController
         return HandleResult(result);
     }
 
+    /// <summary>
+    /// Predict best forecast outcome for a specific match using AI
+    /// </summary>
+    [HttpGet("predict-ai/{matchId}")]
+    [ProducesResponseType(typeof(string), 200)]
+    [ProducesResponseType(typeof(ProblemDetails), 404)]
+    public async Task<IActionResult> PredictByAi(int matchId)
+    {
+        var result = await _forecastAiService.PredictBestOutcomeAsync(matchId);
+        return Ok(result);
+    }
 
     /// <summary>
     /// Generate forecasts for a specific match
@@ -58,6 +73,17 @@ public class ForecastsController : BaseApiController
     public async Task<IActionResult> GenerateAll()
     {
         var result = await _forecastService.GenerateAllForecastsAsync();
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Generate forecasts for missing matches only
+    /// </summary>
+    [HttpPost("generate-missing")]
+    [ProducesResponseType(typeof(bool), 200)]
+    public async Task<IActionResult> GenerateForMissingMatches()
+    {
+        var result = await _forecastService.GenerateForecastsForMissingMatchesAsync();
         return HandleResult(result);
     }
 
@@ -95,13 +121,4 @@ public class ForecastsController : BaseApiController
         var result = await _forecastService.GetAllForecastsAsync(filter, cancellationToken);
         return HandleResult(result);
     }
-    
-    [HttpPost("generate-missing")]
-    [ProducesResponseType(typeof(bool), 200)]
-    public async Task<IActionResult> GenerateForMissingMatches()
-    {
-        var result = await _forecastService.GenerateForecastsForMissingMatchesAsync();
-        return HandleResult(result);
-    }
-
 }

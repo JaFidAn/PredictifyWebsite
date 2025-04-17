@@ -23,6 +23,7 @@ public class ForecastService : IForecastService
     private readonly ITeamOutcomeStreakReadRepository _streakReadRepository;
     private readonly IOutcomeReadRepository _outcomeReadRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IForecastAiService _forecastAiService;
     private readonly IMapper _mapper;
 
     public ForecastService(
@@ -32,6 +33,7 @@ public class ForecastService : IForecastService
         ITeamOutcomeStreakReadRepository streakReadRepository,
         IOutcomeReadRepository outcomeReadRepository,
         IUnitOfWork unitOfWork,
+        IForecastAiService forecastAiService,
         IMapper mapper)
     {
         _matchReadRepository = matchReadRepository;
@@ -40,6 +42,7 @@ public class ForecastService : IForecastService
         _streakReadRepository = streakReadRepository;
         _outcomeReadRepository = outcomeReadRepository;
         _unitOfWork = unitOfWork;
+        _forecastAiService = forecastAiService;
         _mapper = mapper;
     }
 
@@ -174,46 +177,51 @@ public class ForecastService : IForecastService
             .Where(x => !x.IsDeleted && x.Match.IsCompleted == false)
             .Include(x => x.Team)
             .Include(x => x.Match)
-            .ThenInclude(m => m.Team1)
+                .ThenInclude(m => m.Team1)
             .Include(x => x.Match)
-            .ThenInclude(m => m.Team2)
+                .ThenInclude(m => m.Team2)
             .Include(x => x.Outcome)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
-        var summaries = forecasts
-            .GroupBy(f => f.MatchId)
-            .Select(g =>
-            {
-                var match = g.First().Match;
-                var team1 = match.Team1?.Name ?? "Team 1";
-                var team2 = match.Team2?.Name ?? "Team 2";
+        var summaries = new List<ForecastSummaryDto>();
 
-                var outcomeGroups = g
-                    .GroupBy(f => f.Outcome.Name)
-                    .Select(og =>
-                    {
-                        double confidenceRatio = Math.Round(og.Average(f => f.Ratio), 3);
-                        return new OutcomeConfidenceDto
-                        {
-                            OutcomeName = og.Key,
-                            ConfidenceRatio = confidenceRatio
-                        };
-                    })
-                    .ToList();
+        var grouped = forecasts.GroupBy(f => f.MatchId);
 
-                var best = outcomeGroups.OrderByDescending(x => x.ConfidenceRatio).First();
+        foreach (var g in grouped)
+        {
+            var match = g.First().Match;
+            var team1 = match.Team1?.Name ?? "Team 1";
+            var team2 = match.Team2?.Name ?? "Team 2";
 
-                return new ForecastSummaryDto
+            var outcomeGroups = g
+                .GroupBy(f => f.Outcome.Name)
+                .Select(og =>
                 {
-                    MatchId = g.Key,
-                    Team1Name = team1,
-                    Team2Name = team2,
-                    OutcomeForecasts = outcomeGroups,
-                    BestForecastOutcomeName = best.OutcomeName,
-                    BestConfidenceRatio = best.ConfidenceRatio
-                };
-            })
-            .ToList();
+                    double confidenceRatio = Math.Round(og.Average(f => f.Ratio), 3);
+                    return new OutcomeConfidenceDto
+                    {
+                        OutcomeName = og.Key,
+                        ConfidenceRatio = confidenceRatio
+                    };
+                })
+                .ToList();
+
+            var best = outcomeGroups.OrderByDescending(x => x.ConfidenceRatio).FirstOrDefault();
+
+            var aiPrediction = await _forecastAiService.PredictBestOutcomeAsync(g.Key);
+
+            summaries.Add(new ForecastSummaryDto
+            {
+                MatchId = g.Key,
+                Team1Name = team1,
+                Team2Name = team2,
+                OutcomeForecasts = outcomeGroups,
+                BestForecastOutcomeName = best?.OutcomeName ?? "N/A",
+                BestConfidenceRatio = best?.ConfidenceRatio ?? 0,
+                BestForecastOutcomeNameByAI = aiPrediction.OutcomeName,
+                BestConfidenceRatioByAI = aiPrediction.Confidence
+            });
+        }
 
         return Result<List<ForecastSummaryDto>>.Success(summaries);
     }
@@ -250,7 +258,9 @@ public class ForecastService : IForecastService
             })
             .ToList();
 
-        var best = outcomeGroups.OrderByDescending(x => x.ConfidenceRatio).First();
+        var best = outcomeGroups.OrderByDescending(x => x.ConfidenceRatio).FirstOrDefault();
+
+        var aiPrediction = await _forecastAiService.PredictBestOutcomeAsync(matchId);
 
         var summary = new ForecastSummaryDto
         {
@@ -258,12 +268,15 @@ public class ForecastService : IForecastService
             Team1Name = team1,
             Team2Name = team2,
             OutcomeForecasts = outcomeGroups,
-            BestForecastOutcomeName = best.OutcomeName,
-            BestConfidenceRatio = best.ConfidenceRatio
+            BestForecastOutcomeName = best?.OutcomeName ?? "N/A",
+            BestConfidenceRatio = best?.ConfidenceRatio ?? 0,
+            BestForecastOutcomeNameByAI = aiPrediction.OutcomeName,
+            BestConfidenceRatioByAI = aiPrediction.Confidence
         };
 
         return Result<ForecastSummaryDto>.Success(summary);
     }
+
 
     public async Task<Result<PagedResult<ForecastDto>>> GetAllForecastsAsync(ForecastFilterParams filters, CancellationToken cancellationToken)
     {
