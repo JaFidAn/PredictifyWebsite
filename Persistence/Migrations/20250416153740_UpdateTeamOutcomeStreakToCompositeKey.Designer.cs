@@ -12,8 +12,8 @@ using Persistence.Contexts;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250415074054_AddMaxStreakAndRatioToTeamOutcomeStreak")]
-    partial class AddMaxStreakAndRatioToTeamOutcomeStreak
+    [Migration("20250416153740_UpdateTeamOutcomeStreakToCompositeKey")]
+    partial class UpdateTeamOutcomeStreakToCompositeKey
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -237,6 +237,64 @@ namespace Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Countries");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Forecast", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool?>("IsCorrect")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsForecasted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxStreak")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OutcomeId")
+                        .HasColumnType("int");
+
+                    b.Property<double>("Ratio")
+                        .HasColumnType("float");
+
+                    b.Property<int>("StreakCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeamId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MatchId");
+
+                    b.HasIndex("OutcomeId");
+
+                    b.HasIndex("TeamId");
+
+                    b.ToTable("Forecasts", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.League", b =>
@@ -541,31 +599,19 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.TeamOutcomeStreak", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int>("TeamId")
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("MatchDate")
-                        .HasColumnType("datetime2");
+                    b.Property<int>("OutcomeId")
+                        .HasColumnType("int");
 
                     b.Property<int>("MatchId")
                         .HasColumnType("int");
 
-                    b.Property<int>("MaxStreak")
-                        .HasColumnType("int");
+                    b.Property<DateTime>("MatchDate")
+                        .HasColumnType("datetime2");
 
-                    b.Property<int>("OutcomeId")
+                    b.Property<int>("MaxStreak")
                         .HasColumnType("int");
 
                     b.Property<decimal>("Ratio")
@@ -574,23 +620,11 @@ namespace Persistence.Migrations
                     b.Property<int>("StreakCount")
                         .HasColumnType("int");
 
-                    b.Property<int>("TeamId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
+                    b.HasKey("TeamId", "OutcomeId", "MatchId");
 
                     b.HasIndex("MatchId");
 
                     b.HasIndex("OutcomeId");
-
-                    b.HasIndex("TeamId", "OutcomeId", "MatchId")
-                        .IsUnique();
 
                     b.ToTable("TeamOutcomeStreaks");
                 });
@@ -746,6 +780,33 @@ namespace Persistence.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.Forecast", b =>
+                {
+                    b.HasOne("Domain.Entities.Match", "Match")
+                        .WithMany()
+                        .HasForeignKey("MatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Outcome", "Outcome")
+                        .WithMany()
+                        .HasForeignKey("OutcomeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Team", "Team")
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Match");
+
+                    b.Navigation("Outcome");
+
+                    b.Navigation("Team");
                 });
 
             modelBuilder.Entity("Domain.Entities.League", b =>

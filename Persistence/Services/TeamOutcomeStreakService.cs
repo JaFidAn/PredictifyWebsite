@@ -70,12 +70,15 @@ public class TeamOutcomeStreakService : ITeamOutcomeStreakService
         return Result<PagedResult<TeamOutcomeStreakDto>>.Success(pagedResult);
     }
 
-    public async Task<Result<TeamOutcomeStreakDto>> GetByIdAsync(int id)
+    public async Task<Result<TeamOutcomeStreakDto>> GetByIdsAsync(int teamId, int outcomeId, int matchId)
     {
         var streak = await _readRepository.GetAll()
             .Include(x => x.Team)
             .Include(x => x.Outcome)
-            .FirstOrDefaultAsync(x => x.Id == id);
+            .FirstOrDefaultAsync(x =>
+                x.TeamId == teamId &&
+                x.OutcomeId == outcomeId &&
+                x.MatchId == matchId);
 
         if (streak == null)
         {
@@ -125,6 +128,7 @@ public class TeamOutcomeStreakService : ITeamOutcomeStreakService
         try
         {
             var matches = await _matchReadRepository.GetAll()
+                .Include(x => x.Outcomes) 
                 .Where(x => x.IsCompleted && !x.IsDeleted)
                 .OrderBy(x => x.MatchDate)
                 .ToListAsync();
@@ -152,88 +156,88 @@ public class TeamOutcomeStreakService : ITeamOutcomeStreakService
     }
 
     public async Task<Result<bool>> RecalculateStreaksUpToMatchAsync(int teamId, int matchId)
-{
-    await _unitOfWork.BeginTransactionAsync();
-
-    try
     {
-        DateTime maxDate;
+        await _unitOfWork.BeginTransactionAsync();
 
-        if (matchId == int.MaxValue)
+        try
         {
-            maxDate = DateTime.MaxValue;
-        }
-        else
-        {
-            var targetMatch = await _matchReadRepository.GetByIdAsync(matchId);
-            if (targetMatch == null)
+            DateTime maxDate;
+
+            if (matchId == int.MaxValue)
             {
-                return Result<bool>.Failure("Match not found", 404);
+                maxDate = DateTime.MaxValue;
             }
-
-            maxDate = targetMatch.MatchDate;
-        }
-
-        var matches = await _matchReadRepository.GetAll()
-            .Where(x => x.IsCompleted && !x.IsDeleted && x.Outcomes.Any(o => o.TeamId == teamId) && x.MatchDate <= maxDate)
-            .OrderBy(x => x.MatchDate)
-            .ToListAsync();
-
-        await _writeRepository.RemoveRangeByTeamAndMatchDateAsync(teamId, maxDate);
-
-        var allOutcomes = await _outcomeReadRepository.GetAll().ToListAsync();
-        var streakTracker = new Dictionary<int, int>();
-        var maxTracker = new Dictionary<int, int>();
-
-        foreach (var match in matches)
-        {
-            var applicableOutcomeIds = OutcomeDeterminationHelper
-                .DetermineOutcomesForTeam(match, allOutcomes, teamId)
-                .ToHashSet();
-
-            foreach (var outcome in allOutcomes)
+            else
             {
-                var outcomeId = outcome.Id;
-                var occurred = applicableOutcomeIds.Contains(outcomeId);
-
-                streakTracker.TryGetValue(outcomeId, out int prevStreak);
-                int newStreak = occurred ? 0 : prevStreak + 1;
-                streakTracker[outcomeId] = newStreak;
-
-                maxTracker.TryGetValue(outcomeId, out int maxSoFar);
-                if (newStreak > maxSoFar)
+                var targetMatch = await _matchReadRepository.GetByIdAsync(matchId);
+                if (targetMatch == null)
                 {
-                    maxSoFar = newStreak;
-                    maxTracker[outcomeId] = newStreak;
+                    return Result<bool>.Failure("Match not found", 404);
                 }
 
-                double ratio = maxSoFar > 0 ? Math.Round((double)newStreak / maxSoFar, 3) : 0;
-
-                await _writeRepository.AddAsync(new TeamOutcomeStreak
-                {
-                    TeamId = teamId,
-                    OutcomeId = outcomeId,
-                    MatchId = match.Id,
-                    MatchDate = match.MatchDate,
-                    StreakCount = newStreak,
-                    MaxStreak = maxSoFar,
-                    Ratio = ratio
-                });
+                maxDate = targetMatch.MatchDate;
             }
+
+            var matches = await _matchReadRepository.GetAll()
+                .Include(x => x.Outcomes) 
+                .Where(x => x.IsCompleted && !x.IsDeleted && x.Outcomes.Any(o => o.TeamId == teamId) && x.MatchDate <= maxDate)
+                .OrderBy(x => x.MatchDate)
+                .ToListAsync();
+
+            await _writeRepository.RemoveRangeByTeamAndMatchDateAsync(teamId, maxDate);
+
+            var allOutcomes = await _outcomeReadRepository.GetAll().ToListAsync();
+            var streakTracker = new Dictionary<int, int>();
+            var maxTracker = new Dictionary<int, int>();
+
+            foreach (var match in matches)
+            {
+                var applicableOutcomeIds = OutcomeDeterminationHelper
+                    .DetermineOutcomesForTeam(match, allOutcomes, teamId)
+                    .ToHashSet();
+
+                foreach (var outcome in allOutcomes)
+                {
+                    var outcomeId = outcome.Id;
+                    var occurred = applicableOutcomeIds.Contains(outcomeId);
+
+                    streakTracker.TryGetValue(outcomeId, out int prevStreak);
+                    int newStreak = occurred ? 0 : prevStreak + 1;
+                    streakTracker[outcomeId] = newStreak;
+
+                    maxTracker.TryGetValue(outcomeId, out int maxSoFar);
+                    if (newStreak > maxSoFar)
+                    {
+                        maxSoFar = newStreak;
+                        maxTracker[outcomeId] = newStreak;
+                    }
+
+                    double ratio = maxSoFar > 0 ? Math.Round((double)newStreak / maxSoFar, 3) : 0;
+
+                    await _writeRepository.AddAsync(new TeamOutcomeStreak
+                    {
+                        TeamId = teamId,
+                        OutcomeId = outcomeId,
+                        MatchId = match.Id,
+                        MatchDate = match.MatchDate,
+                        StreakCount = newStreak,
+                        MaxStreak = maxSoFar,
+                        Ratio = ratio
+                    });
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitAsync();
+
+            return Result<bool>.Success(true, $"Streaks recalculated for team {teamId} up to match {matchId}.");
         }
-
-        await _unitOfWork.SaveChangesAsync();
-        await _unitOfWork.CommitAsync();
-
-        return Result<bool>.Success(true, $"Streaks recalculated for team {teamId} up to match {matchId}.");
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
-    catch
-    {
-        await _unitOfWork.RollbackAsync();
-        throw;
-    }
-}
-
 
     public async Task<Result<List<TeamOutcomeStreakDto>>> GetByTeamIdAsync(int teamId, CancellationToken cancellationToken)
     {
@@ -247,4 +251,27 @@ public class TeamOutcomeStreakService : ITeamOutcomeStreakService
         var dtoList = _mapper.Map<List<TeamOutcomeStreakDto>>(streaks);
         return Result<List<TeamOutcomeStreakDto>>.Success(dtoList);
     }
+
+    public async Task<Result<List<TeamOutcomeStreakDto>>> GetLatestByTeamIdAsync(int teamId, CancellationToken cancellationToken)
+    {
+        var allStreaks = await _readRepository.GetAll()
+            .Where(x => x.TeamId == teamId)
+            .Include(x => x.Team)
+            .Include(x => x.Outcome)
+            .ToListAsync(cancellationToken);
+
+        var latestStreaks = allStreaks
+            .GroupBy(x => x.OutcomeId)
+            .Select(g => g.OrderByDescending(x => x.MatchDate).First())
+            .ToList();
+
+        if (latestStreaks.Count == 0)
+        {
+            return Result<List<TeamOutcomeStreakDto>>.Failure("No streaks found for this team", 404);
+        }
+
+        var dtoList = _mapper.Map<List<TeamOutcomeStreakDto>>(latestStreaks);
+        return Result<List<TeamOutcomeStreakDto>>.Success(dtoList);
+    }
+
 }

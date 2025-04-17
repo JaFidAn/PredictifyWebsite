@@ -29,6 +29,7 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
     public DbSet<Match> Matches { get; set; }
     public DbSet<MatchTeamSeasonLeague> MatchTeamSeasonLeagues { get; set; }
     public DbSet<TeamOutcomeStreak> TeamOutcomeStreaks { get; set; }
+    public DbSet<Forecast> Forecasts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

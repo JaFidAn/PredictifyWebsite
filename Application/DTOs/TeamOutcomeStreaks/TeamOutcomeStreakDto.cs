@@ -2,7 +2,6 @@ namespace Application.DTOs.TeamOutcomeStreaks;
 
 public class TeamOutcomeStreakDto
 {
-    public int Id { get; set; }
     public int TeamId { get; set; }
     public string? TeamName { get; set; }
     public int OutcomeId { get; set; }
@@ -13,3 +12,4 @@ public class TeamOutcomeStreakDto
     public int MaxStreak { get; set; }     
     public double Ratio { get; set; }   
 }
+

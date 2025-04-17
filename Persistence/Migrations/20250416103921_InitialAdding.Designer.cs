@@ -12,8 +12,8 @@ using Persistence.Contexts;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250409105456_AddMatchOutcomeTable")]
-    partial class AddMatchOutcomeTable
+    [Migration("20250416103921_InitialAdding")]
+    partial class InitialAdding
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -239,6 +239,64 @@ namespace Persistence.Migrations
                     b.ToTable("Countries");
                 });
 
+            modelBuilder.Entity("Domain.Entities.Forecast", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool?>("IsCorrect")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsForecasted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxStreak")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OutcomeId")
+                        .HasColumnType("int");
+
+                    b.Property<double>("Ratio")
+                        .HasColumnType("float");
+
+                    b.Property<int>("StreakCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeamId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MatchId");
+
+                    b.HasIndex("OutcomeId");
+
+                    b.HasIndex("TeamId");
+
+                    b.ToTable("Forecasts", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.League", b =>
                 {
                     b.Property<int>("Id")
@@ -389,6 +447,11 @@ namespace Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -414,6 +477,9 @@ namespace Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -529,6 +595,62 @@ namespace Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Teams");
+                });
+
+            modelBuilder.Entity("Domain.Entities.TeamOutcomeStreak", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("MatchDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxStreak")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OutcomeId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Ratio")
+                        .HasColumnType("decimal(4,3)");
+
+                    b.Property<int>("StreakCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeamId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MatchId");
+
+                    b.HasIndex("OutcomeId");
+
+                    b.HasIndex("TeamId", "OutcomeId", "MatchId")
+                        .IsUnique();
+
+                    b.ToTable("TeamOutcomeStreaks");
                 });
 
             modelBuilder.Entity("Domain.Entities.TeamSeasonLeague", b =>
@@ -684,6 +806,33 @@ namespace Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.Forecast", b =>
+                {
+                    b.HasOne("Domain.Entities.Match", "Match")
+                        .WithMany()
+                        .HasForeignKey("MatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Outcome", "Outcome")
+                        .WithMany()
+                        .HasForeignKey("OutcomeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Team", "Team")
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Match");
+
+                    b.Navigation("Outcome");
+
+                    b.Navigation("Team");
+                });
+
             modelBuilder.Entity("Domain.Entities.League", b =>
                 {
                     b.HasOne("Domain.Entities.Competition", "Competition")
@@ -793,6 +942,33 @@ namespace Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Country");
+                });
+
+            modelBuilder.Entity("Domain.Entities.TeamOutcomeStreak", b =>
+                {
+                    b.HasOne("Domain.Entities.Match", "Match")
+                        .WithMany()
+                        .HasForeignKey("MatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Outcome", "Outcome")
+                        .WithMany()
+                        .HasForeignKey("OutcomeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Team", "Team")
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Match");
+
+                    b.Navigation("Outcome");
+
+                    b.Navigation("Team");
                 });
 
             modelBuilder.Entity("Domain.Entities.TeamSeasonLeague", b =>

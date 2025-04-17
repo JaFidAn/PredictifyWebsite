@@ -20,6 +20,7 @@ public class MatchService : IMatchService
     private readonly IMatchWriteRepository _writeRepository;
     private readonly IOutcomeReadRepository _outcomeReadRepository;
     private readonly ITeamOutcomeStreakService _streakService;
+    private readonly IForecastService _forecastService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
 
@@ -28,6 +29,7 @@ public class MatchService : IMatchService
         IMatchWriteRepository writeRepository,
         IOutcomeReadRepository outcomeReadRepository,
         ITeamOutcomeStreakService streakService,
+        IForecastService forecastService,
         IUnitOfWork unitOfWork,
         IMapper mapper)
     {
@@ -35,6 +37,7 @@ public class MatchService : IMatchService
         _writeRepository = writeRepository;
         _outcomeReadRepository = outcomeReadRepository;
         _streakService = streakService;
+        _forecastService = forecastService;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
     }
@@ -72,9 +75,15 @@ public class MatchService : IMatchService
 
             await _unitOfWork.SaveChangesAsync();
 
+            // Hər zaman forecast-lar yaradılır
+            await _forecastService.GenerateForecastsForMatchAsync(match.Id);
+
             if (match.IsCompleted)
             {
                 await _streakService.RecalculateStreaksForMatchAsync(match.Id);
+                await _unitOfWork.SaveChangesAsync();
+
+                await _forecastService.UpdateForecastsAfterMatchResultAsync(match.Id);
                 await _unitOfWork.SaveChangesAsync();
             }
 
@@ -90,67 +99,118 @@ public class MatchService : IMatchService
         }
     }
 
-    public async Task<Result<bool>> UpdateAsync(UpdateMatchDto dto)
+    public async Task<Result<MatchDto>> CreateWithoutForecastAsync(CreateMatchDto dto)
     {
-    await _unitOfWork.BeginTransactionAsync();
+        await _unitOfWork.BeginTransactionAsync();
 
-    try
-    {
-        var match = await _readRepository.GetAll()
-            .Include(x => x.MatchTeamSeasonLeagues)
-            .Include(x => x.Outcomes)
-            .FirstOrDefaultAsync(x => x.Id == dto.Id);
-
-        if (match == null || match.IsDeleted)
-            return Result<bool>.Failure(MessageGenerator.NotFound("Match"), 404);
-
-        var isBusyTeam = await _readRepository.GetAll()
-            .AnyAsync(x =>
-                x.Id != dto.Id &&
-                x.MatchDate == dto.MatchDate &&
-                !x.IsDeleted &&
-                (x.Team1Id == dto.Team1Id || x.Team2Id == dto.Team1Id ||
-                 x.Team1Id == dto.Team2Id || x.Team2Id == dto.Team2Id));
-
-        if (isBusyTeam)
-            return Result<bool>.Failure("One of the teams already has a match on this date.", 409);
-
-        match.MatchDate = dto.MatchDate;
-        match.Team1Goals = dto.Team1Goals;
-        match.Team2Goals = dto.Team2Goals;
-        match.IsCompleted = dto.Team1Goals.HasValue && dto.Team2Goals.HasValue;
-
-        _writeRepository.RemoveMatchTeamSeasonLeagues(match);
-        _writeRepository.RemoveMatchOutcomes(match);
-
-        match.MatchTeamSeasonLeagues = BuildMatchTeamSeasonLeagues(
-            match.Id, dto.Team1Id, dto.Team2Id, dto.SeasonId, dto.LeagueId);
-
-        var outcomes = await _outcomeReadRepository.GetAll().ToListAsync();
-        match.Outcomes = OutcomeDeterminationHelper.DetermineOutcomes(match, outcomes);
-
-        _writeRepository.Update(match);
-        await _unitOfWork.SaveChangesAsync();
-
-        if (match.IsCompleted)
+        try
         {
-            var teamIds = match.Outcomes.Select(x => x.TeamId).Distinct();
-            foreach (var teamId in teamIds)
-            {
-                await _streakService.RecalculateStreaksForTeamAsync(teamId);
-            }
+            if (dto.Team1Id == dto.Team2Id)
+                return Result<MatchDto>.Failure("A team cannot play against itself", 400);
+
+            var isBusyTeam = await _readRepository.GetAll()
+                .AnyAsync(x =>
+                    x.MatchDate == dto.MatchDate &&
+                    !x.IsDeleted &&
+                    (x.Team1Id == dto.Team1Id || x.Team2Id == dto.Team1Id ||
+                     x.Team1Id == dto.Team2Id || x.Team2Id == dto.Team2Id));
+
+            if (isBusyTeam)
+                return Result<MatchDto>.Failure("One of the teams already has a match on this date.", 409);
+
+            var match = _mapper.Map<Match>(dto);
+            match.IsCompleted = dto.Team1Goals.HasValue && dto.Team2Goals.HasValue;
+
+            await _writeRepository.AddAsync(match);
+            await _unitOfWork.SaveChangesAsync();
+
+            match.MatchTeamSeasonLeagues = BuildMatchTeamSeasonLeagues(
+                match.Id, dto.Team1Id, dto.Team2Id, dto.SeasonId, dto.LeagueId);
+
+            var outcomes = await _outcomeReadRepository.GetAll().ToListAsync();
+            match.Outcomes = OutcomeDeterminationHelper.DetermineOutcomes(match, outcomes);
 
             await _unitOfWork.SaveChangesAsync();
-        }
+            await _unitOfWork.CommitAsync();
 
-        await _unitOfWork.CommitAsync();
-        return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("Match"));
+            var resultDto = await GetByIdAsync(match.Id);
+            return resultDto;
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
-    catch
+
+
+    public async Task<Result<bool>> UpdateAsync(UpdateMatchDto dto)
     {
-        await _unitOfWork.RollbackAsync();
-        throw;
-    }
+        await _unitOfWork.BeginTransactionAsync();
+
+        try
+        {
+            var match = await _readRepository.GetAll()
+                .Include(x => x.MatchTeamSeasonLeagues)
+                .Include(x => x.Outcomes)
+                .FirstOrDefaultAsync(x => x.Id == dto.Id);
+
+            if (match == null || match.IsDeleted)
+                return Result<bool>.Failure(MessageGenerator.NotFound("Match"), 404);
+
+            var isBusyTeam = await _readRepository.GetAll()
+                .AnyAsync(x =>
+                    x.Id != dto.Id &&
+                    x.MatchDate == dto.MatchDate &&
+                    !x.IsDeleted &&
+                    (x.Team1Id == dto.Team1Id || x.Team2Id == dto.Team1Id ||
+                     x.Team1Id == dto.Team2Id || x.Team2Id == dto.Team2Id));
+
+            if (isBusyTeam)
+                return Result<bool>.Failure("One of the teams already has a match on this date.", 409);
+
+            match.MatchDate = dto.MatchDate;
+            match.Team1Goals = dto.Team1Goals;
+            match.Team2Goals = dto.Team2Goals;
+            match.IsCompleted = dto.Team1Goals.HasValue && dto.Team2Goals.HasValue;
+
+            _writeRepository.RemoveMatchTeamSeasonLeagues(match);
+            _writeRepository.RemoveMatchOutcomes(match);
+
+            match.MatchTeamSeasonLeagues = BuildMatchTeamSeasonLeagues(
+                match.Id, dto.Team1Id, dto.Team2Id, dto.SeasonId, dto.LeagueId);
+
+            var outcomes = await _outcomeReadRepository.GetAll().ToListAsync();
+            match.Outcomes = OutcomeDeterminationHelper.DetermineOutcomes(match, outcomes);
+
+            _writeRepository.Update(match);
+            await _unitOfWork.SaveChangesAsync();
+
+            // Forecast-lar yenilənir
+            await _forecastService.GenerateForecastsForMatchAsync(match.Id);
+
+            if (match.IsCompleted)
+            {
+                var teamIds = match.Outcomes.Select(x => x.TeamId).Distinct();
+                foreach (var teamId in teamIds)
+                {
+                    await _streakService.RecalculateStreaksForTeamAsync(teamId);
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+
+                await _forecastService.UpdateForecastsAfterMatchResultAsync(match.Id);
+                await _unitOfWork.SaveChangesAsync();
+            }
+
+            await _unitOfWork.CommitAsync();
+            return Result<bool>.Success(true, MessageGenerator.UpdateSuccess("Match"));
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<Result<bool>> DeleteAsync(int id)

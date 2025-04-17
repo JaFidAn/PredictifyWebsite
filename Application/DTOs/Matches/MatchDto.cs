@@ -14,6 +14,8 @@ public class MatchDto
     public int? Team1Goals { get; set; }
     public int? Team2Goals { get; set; }
     public bool IsCompleted { get; set; }
+    public int? SeasonId { get; set; }     
+    public int? LeagueId { get; set; } 
     public List<MatchOutcomeDto> Outcomes { get; set; } = new();
     public List<MatchTeamSeasonLeagueDto> TeamSeasonLeagues { get; set; } = new();
 }

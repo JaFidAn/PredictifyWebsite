@@ -28,14 +28,14 @@ public class TeamOutcomeStreaksController : BaseApiController
     }
 
     /// <summary>
-    /// Get a team outcome streak by ID
+    /// Get a team outcome streak by composite key (teamId, outcomeId, matchId)
     /// </summary>
-    [HttpGet("{id}")]
+    [HttpGet("{teamId}/{outcomeId}/{matchId}")]
     [ProducesResponseType(typeof(TeamOutcomeStreakDto), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]
-    public async Task<IActionResult> GetById(int id)
+    public async Task<IActionResult> GetByCompositeKey(int teamId, int outcomeId, int matchId)
     {
-        var result = await _streakService.GetByIdAsync(id);
+        var result = await _streakService.GetByIdsAsync(teamId, outcomeId, matchId);
         return HandleResult(result);
     }
 
@@ -48,6 +48,18 @@ public class TeamOutcomeStreaksController : BaseApiController
     public async Task<IActionResult> GetByTeamId(int teamId, CancellationToken cancellationToken)
     {
         var result = await _streakService.GetByTeamIdAsync(teamId, cancellationToken);
+        return HandleResult(result);
+    }
+    
+    /// <summary>
+    /// Get latest streaks for a specific team (one per outcome, most recent match)
+    /// </summary>
+    [HttpGet("latest-by-team/{teamId}")]
+    [ProducesResponseType(typeof(List<TeamOutcomeStreakDto>), 200)]
+    [ProducesResponseType(typeof(ProblemDetails), 404)]
+    public async Task<IActionResult> GetLatestByTeam(int teamId, CancellationToken cancellationToken)
+    {
+        var result = await _streakService.GetLatestByTeamIdAsync(teamId, cancellationToken);
         return HandleResult(result);
     }
 

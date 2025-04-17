@@ -14,13 +14,18 @@ using Domain.Entities;
 using System.Threading.RateLimiting;
 using Infrastructure.Identity;
 using FluentValidation.AspNetCore;
+using Application.Configurations; 
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✅Application, Infrastructure, Persistence
+// ✅ Application, Infrastructure, Persistence
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 builder.Services.AddPersistence(builder.Configuration);
+
+// ✅ External Folder Path configuration (DataSettings)
+builder.Services.Configure<DataSettings>(
+    builder.Configuration.GetSection("DataSettings")); 
 
 builder.Services.AddHttpContextAccessor();
 

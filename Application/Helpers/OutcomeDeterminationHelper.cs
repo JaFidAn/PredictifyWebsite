@@ -1,5 +1,5 @@
 using Domain.Entities;
-using Application.Utulity;
+using Application.Utilities;
 
 namespace Application.Helpers;
 
@@ -46,6 +46,36 @@ public static class OutcomeDeterminationHelper
                         result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team2Id });
                     }
                     break;
+
+                case SD.BTTS:
+                    if (match.Team1Goals > 0 && match.Team2Goals > 0)
+                    {
+                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team1Id });
+                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team2Id });
+                    }
+                    break;
+
+                case SD.BTNS:
+                    if (match.Team1Goals == 0 || match.Team2Goals == 0)
+                    {
+                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team1Id });
+                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team2Id });
+                    }
+                    break;
+
+                case SD.T1_OVER_1_5:
+                    if (match.Team1Goals > 1)
+                    {
+                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team1Id });
+                    }
+                    break;
+
+                case SD.T2_OVER_1_5:
+                    if (match.Team2Goals > 1)
+                    {
+                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team2Id });
+                    }
+                    break;
             }
         }
 
@@ -61,46 +91,65 @@ public static class OutcomeDeterminationHelper
             switch (outcome.Code.ToUpper())
             {
                 case SD.WIN:
-                    if (match.Team1Goals > match.Team2Goals && match.Team1Id == teamId)
-                    {
-                        result.Add(outcome.Id);
-                    }
-                    if (match.Team2Goals > match.Team1Goals && match.Team2Id == teamId)
+                    if ((match.Team1Goals > match.Team2Goals && teamId == match.Team1Id) ||
+                        (match.Team2Goals > match.Team1Goals && teamId == match.Team2Id))
                     {
                         result.Add(outcome.Id);
                     }
                     break;
 
                 case SD.LOSE:
-                    if (match.Team1Goals < match.Team2Goals && match.Team1Id == teamId)
-                    {
-                        result.Add(outcome.Id);
-                    }
-                    if (match.Team2Goals < match.Team1Goals && match.Team2Id == teamId)
+                    if ((match.Team1Goals < match.Team2Goals && teamId == match.Team1Id) ||
+                        (match.Team2Goals < match.Team1Goals && teamId == match.Team2Id))
                     {
                         result.Add(outcome.Id);
                     }
                     break;
 
                 case SD.DRAW:
-                    if (match.Team1Goals == match.Team2Goals &&
-                        (match.Team1Id == teamId || match.Team2Id == teamId))
+                    if (match.Team1Goals == match.Team2Goals && (teamId == match.Team1Id || teamId == match.Team2Id))
                     {
                         result.Add(outcome.Id);
                     }
                     break;
 
                 case SD.OVER_2_5:
-                    if ((match.Team1Goals + match.Team2Goals) > 2 &&
-                        (match.Team1Id == teamId || match.Team2Id == teamId))
+                    if ((match.Team1Goals + match.Team2Goals) > 2 && (teamId == match.Team1Id || teamId == match.Team2Id))
                     {
                         result.Add(outcome.Id);
                     }
                     break;
 
                 case SD.UNDER_2_5:
-                    if ((match.Team1Goals + match.Team2Goals) <= 2 &&
-                        (match.Team1Id == teamId || match.Team2Id == teamId))
+                    if ((match.Team1Goals + match.Team2Goals) <= 2 && (teamId == match.Team1Id || teamId == match.Team2Id))
+                    {
+                        result.Add(outcome.Id);
+                    }
+                    break;
+
+                case SD.BTTS:
+                    if (match.Team1Goals > 0 && match.Team2Goals > 0 && (teamId == match.Team1Id || teamId == match.Team2Id))
+                    {
+                        result.Add(outcome.Id);
+                    }
+                    break;
+
+                case SD.BTNS:
+                    if ((match.Team1Goals == 0 || match.Team2Goals == 0) && (teamId == match.Team1Id || teamId == match.Team2Id))
+                    {
+                        result.Add(outcome.Id);
+                    }
+                    break;
+
+                case SD.T1_OVER_1_5:
+                    if (teamId == match.Team1Id && match.Team1Goals > 1)
+                    {
+                        result.Add(outcome.Id);
+                    }
+                    break;
+
+                case SD.T2_OVER_1_5:
+                    if (teamId == match.Team2Id && match.Team2Goals > 1)
                     {
                         result.Add(outcome.Id);
                     }

@@ -1,6 +1,7 @@
 using Application.DTOs.AuditLogs;
 using Application.DTOs.Competitions;
 using Application.DTOs.Countries;
+using Application.DTOs.Forecasts;
 using Application.DTOs.Leagues;
 using Application.DTOs.Matches;
 using Application.DTOs.MatchOutcomes;
@@ -58,12 +59,14 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.LeagueName, opt => opt.MapFrom(src => src.League.Name));
 
         // ✅ Match
-        CreateMap<CreateMatchDto, Match>();
-        CreateMap<UpdateMatchDto, Match>();
         CreateMap<Match, MatchDto>()
             .ForMember(dest => dest.Team1Name, opt => opt.MapFrom(src => src.Team1.Name))
-            .ForMember(dest => dest.Team2Name, opt => opt.MapFrom(src => src.Team2.Name));
-
+            .ForMember(dest => dest.Team2Name, opt => opt.MapFrom(src => src.Team2.Name))
+            .ForMember(dest => dest.SeasonId, opt => opt.MapFrom(src =>
+                src.MatchTeamSeasonLeagues.FirstOrDefault()!.SeasonId)) 
+            .ForMember(dest => dest.LeagueId, opt => opt.MapFrom(src =>
+                src.MatchTeamSeasonLeagues.FirstOrDefault()!.LeagueId)); 
+        
         // ✅ MatchTeamSeasonLeague
         CreateMap<MatchTeamSeasonLeague, MatchTeamSeasonLeagueDto>()
             .ForMember(dest => dest.SeasonName, opt => opt.MapFrom(src => src.Season.Name))
@@ -78,8 +81,10 @@ public class MappingProfile : Profile
         CreateMap<TeamOutcomeStreak, TeamOutcomeStreakDto>()
             .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Team.Name))
             .ForMember(dest => dest.OutcomeName, opt => opt.MapFrom(src => src.Outcome.Name));
-
-        CreateMap<CreateTeamOutcomeStreakDto, TeamOutcomeStreak>();
-        CreateMap<UpdateTeamOutcomeStreakDto, TeamOutcomeStreak>();
+        
+        // ✅ Forecast
+        CreateMap<Forecast, ForecastDto>()
+            .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Team.Name))
+            .ForMember(dest => dest.OutcomeName, opt => opt.MapFrom(src => src.Outcome.Name));
     }
 }

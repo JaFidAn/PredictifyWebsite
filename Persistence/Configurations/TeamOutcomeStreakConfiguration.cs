@@ -8,7 +8,7 @@ public class TeamOutcomeStreakConfiguration : IEntityTypeConfiguration<TeamOutco
 {
     public void Configure(EntityTypeBuilder<TeamOutcomeStreak> builder)
     {
-        builder.HasKey(x => x.Id);
+        builder.HasKey(x => new { x.TeamId, x.OutcomeId, x.MatchId });
 
         builder.Property(x => x.StreakCount)
             .IsRequired();
@@ -37,8 +37,5 @@ public class TeamOutcomeStreakConfiguration : IEntityTypeConfiguration<TeamOutco
             .WithMany()
             .HasForeignKey(x => x.MatchId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        builder.HasIndex(x => new { x.TeamId, x.OutcomeId, x.MatchId })
-            .IsUnique();
     }
 }

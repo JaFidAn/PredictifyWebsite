@@ -5,48 +5,20 @@ using Persistence.Contexts;
 
 namespace Persistence.Repositories.TeamOutcomeStreakRepositories;
 
-public class TeamOutcomeStreakWriteRepository : WriteRepository<TeamOutcomeStreak, int>, ITeamOutcomeStreakWriteRepository
+public class TeamOutcomeStreakWriteRepository : ITeamOutcomeStreakWriteRepository
 {
     private readonly ApplicationDbContext _context;
 
-    public TeamOutcomeStreakWriteRepository(ApplicationDbContext context) : base(context)
+    public TeamOutcomeStreakWriteRepository(ApplicationDbContext context)
     {
         _context = context;
     }
 
-    public async Task RemoveAllAsync()
+    public async Task AddAsync(TeamOutcomeStreak entity)
     {
-        var all = await _context.TeamOutcomeStreaks.ToListAsync();
-        _context.TeamOutcomeStreaks.RemoveRange(all);
+        await _context.TeamOutcomeStreaks.AddAsync(entity);
     }
 
-    public async Task RemoveAllByTeamIdAsync(int teamId)
-    {
-        var toRemove = await _context.TeamOutcomeStreaks
-            .Where(x => x.TeamId == teamId)
-            .ToListAsync();
-
-        _context.TeamOutcomeStreaks.RemoveRange(toRemove);
-    }
-
-    public async Task RemoveByMatchIdAsync(int matchId)
-    {
-        var toRemove = await _context.TeamOutcomeStreaks
-            .Where(x => x.MatchId == matchId)
-            .ToListAsync();
-
-        _context.TeamOutcomeStreaks.RemoveRange(toRemove);
-    }
-
-    public async Task RemoveByTeamAndOutcomeAsync(int teamId, int outcomeId)
-    {
-        var toRemove = await _context.TeamOutcomeStreaks
-            .Where(x => x.TeamId == teamId && x.OutcomeId == outcomeId)
-            .ToListAsync();
-
-        _context.TeamOutcomeStreaks.RemoveRange(toRemove);
-    }
-    
     public async Task RemoveRangeByTeamAndMatchDateAsync(int teamId, DateTime maxDate)
     {
         var toRemove = await _context.TeamOutcomeStreaks

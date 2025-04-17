@@ -2,11 +2,8 @@ using Domain.Entities;
 
 namespace Application.Repositories.TeamOutcomeStreakRepositories;
 
-public interface ITeamOutcomeStreakWriteRepository : IWriteRepository<TeamOutcomeStreak, int>
+public interface ITeamOutcomeStreakWriteRepository
 {
-    Task RemoveAllAsync();
-    Task RemoveAllByTeamIdAsync(int teamId);
-    Task RemoveByMatchIdAsync(int matchId);
-    Task RemoveByTeamAndOutcomeAsync(int teamId, int outcomeId);
+    Task AddAsync(TeamOutcomeStreak entity);
     Task RemoveRangeByTeamAndMatchDateAsync(int teamId, DateTime maxDate);
 }
