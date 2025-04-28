@@ -46,4 +46,10 @@ public class UnitOfWork : IUnitOfWork
     {
         return await _context.SaveChangesAsync();
     }
+    
+    public bool DisableAuditLogging
+    {
+        get => _context.DisableAuditLogging;
+        set => _context.DisableAuditLogging = value;
+    }
 }

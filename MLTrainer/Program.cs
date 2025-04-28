@@ -6,15 +6,19 @@ internal class Program
 {
     static void Main(string[] args)
     {
-        Console.WriteLine("🚀 Starting Forecast Model Training...");
+        Console.WriteLine("🚀 Forecast Model Training başladı...");
 
         var trainer = new ForecastModelTrainer();
 
-        // Məlumat faylının tam yolunu burada göstər
+        // Məlumat faylının tam yolu
         var dataPath = Path.Combine("Data", "forecast-training-data.csv");
 
+        // 1️⃣ Ümumi model təlimi
         trainer.Train(dataPath);
 
-        Console.WriteLine("✅ Training complete.");
+        // 2️⃣ Outcome-lara görə ayrıca model təlimi
+        trainer.TrainPerOutcome(dataPath);
+
+        Console.WriteLine("✅ Bütün təlimlər tamamlandı.");
     }
 }

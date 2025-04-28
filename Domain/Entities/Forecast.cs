@@ -2,8 +2,9 @@
 
 namespace Domain.Entities;
 
-public class Forecast : BaseEntity<int>
+public class Forecast 
 {
+    public int Id { get; set; }
     public int MatchId { get; set; }
     public int TeamId { get; set; }
     public int OutcomeId { get; set; }

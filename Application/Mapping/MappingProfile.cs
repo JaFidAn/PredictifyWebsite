@@ -1,3 +1,4 @@
+using Application.DTOs.AiForecasts;
 using Application.DTOs.AuditLogs;
 using Application.DTOs.Competitions;
 using Application.DTOs.Countries;
@@ -59,6 +60,8 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.LeagueName, opt => opt.MapFrom(src => src.League.Name));
 
         // ✅ Match
+        CreateMap<CreateMatchDto, Match>();
+        CreateMap<UpdateMatchDto, Match>();
         CreateMap<Match, MatchDto>()
             .ForMember(dest => dest.Team1Name, opt => opt.MapFrom(src => src.Team1.Name))
             .ForMember(dest => dest.Team2Name, opt => opt.MapFrom(src => src.Team2.Name))
@@ -86,5 +89,8 @@ public class MappingProfile : Profile
         CreateMap<Forecast, ForecastDto>()
             .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Team.Name))
             .ForMember(dest => dest.OutcomeName, opt => opt.MapFrom(src => src.Outcome.Name));
+       
+        // ✅ Forecast
+        CreateMap<AiForecast, AiForecastDto>();
     }
 }

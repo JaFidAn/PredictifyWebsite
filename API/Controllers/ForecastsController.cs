@@ -1,4 +1,5 @@
-﻿using Application.DTOs.Forecasts;
+﻿using Application.Core;
+using Application.DTOs.Forecasts;
 using Application.Params;
 using Application.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -35,10 +36,37 @@ public class ForecastsController : BaseApiController
     /// </summary>
     [HttpGet("summaries")]
     [ProducesResponseType(typeof(List<ForecastSummaryDto>), 200)]
-    public async Task<IActionResult> GetAllSummaries(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAllSummaries([FromQuery] ForecastFilterParams filters, CancellationToken cancellationToken)
     {
-        var result = await _forecastService.GetAllForecastSummariesAsync(cancellationToken);
+        var result = await _forecastService.GetAllForecastSummariesAsync(filters, cancellationToken);
         return HandleResult(result);
+    }
+    
+    /// <summary>
+    /// Get Classic forecast accuracy (% of correct predictions) with filters
+    /// </summary>
+    [HttpGet("accuracy")]
+    public async Task<IActionResult> GetClassicForecastAccuracy([FromQuery] ForecastFilterParams filters)
+    {
+        var result = await _forecastService.GetClassicForecastAccuracyAsync(filters);
+        if (!result.IsSuccess)
+            return Problem(result.Error);
+
+        return Ok(new { accuracy = result.Value });
+    }
+    
+    /// <summary>
+    /// Get Classic forecast trend (daily accuracy stats) with filtering
+    /// </summary>
+    [HttpGet("trend")]
+    [ProducesResponseType(typeof(PagedResult<ForecastTrendDto>), 200)]
+    public async Task<IActionResult> GetTrend([FromQuery] ForecastFilterParams filters)
+    {
+        var result = await _forecastService.GetTrendReportAsync(filters);
+        if (!result.IsSuccess)
+            return Problem(result.Error);
+
+        return Ok(result.Value);
     }
 
     /// <summary>

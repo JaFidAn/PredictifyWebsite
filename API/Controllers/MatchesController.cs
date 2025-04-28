@@ -79,4 +79,16 @@ public class MatchesController : BaseApiController
         var result = await _matchService.DeleteAsync(id);
         return HandleResult(result);
     }
+    
+    /// <summary>
+    /// Recalculate all match outcomes, streaks, and forecasts
+    /// </summary>
+    [HttpPost("recalculate-match-outcomes")]
+    [ProducesResponseType(typeof(bool), 200)]
+    [ProducesResponseType(typeof(ProblemDetails), 500)]
+    public async Task<IActionResult> RecalculateMatchOutcomes()
+    {
+        var result = await _matchService.RecalculateMatchOutcomesOnlyAsync();
+        return HandleResult(result);
+    }
 }

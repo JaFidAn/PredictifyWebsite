@@ -1,4 +1,5 @@
 ﻿using Application.Repositories.ForecastRepositories;
+using Application.Repositories.OutcomeRepositories;
 using Application.Services;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -10,59 +11,73 @@ namespace Infrastructure.Services;
 public class ForecastAiService : IForecastAiService
 {
     private readonly IForecastReadRepository _forecastReadRepository;
+    private readonly IOutcomeReadRepository _outcomeReadRepository;
     private readonly IMapper _mapper;
     private readonly MLContext _mlContext;
-    private readonly ITransformer _model;
-    private readonly PredictionEngine<ForecastModelInput, ForecastModelOutput> _predictionEngine;
+    private readonly Dictionary<int, ITransformer> _models;
 
-    public ForecastAiService(IForecastReadRepository forecastReadRepository, IMapper mapper)
+    public ForecastAiService(
+        IForecastReadRepository forecastReadRepository,
+        IOutcomeReadRepository outcomeReadRepository,
+        IMapper mapper)
     {
         _forecastReadRepository = forecastReadRepository;
+        _outcomeReadRepository = outcomeReadRepository;
         _mapper = mapper;
         _mlContext = new MLContext();
+        _models = new Dictionary<int, ITransformer>();
 
-        var modelPath = Path.Combine(AppContext.BaseDirectory, "Model", "ForecastPredictionModel.zip");
+        LoadAllModels().GetAwaiter().GetResult(); // Sync call for constructor
+    }
 
-        if (!File.Exists(modelPath))
+    private async Task LoadAllModels()
+    {
+        var modelDir = Path.Combine(AppContext.BaseDirectory, "Model");
+
+        var outcomes = await _outcomeReadRepository.GetAll().ToListAsync();
+
+        foreach (var outcome in outcomes)
         {
-            throw new FileNotFoundException("ML.NET model file not found.", modelPath);
+            var modelPath = Path.Combine(modelDir, $"ForecastModel_{outcome.Code}.zip");
+            if (File.Exists(modelPath))
+            {
+                using var stream = new FileStream(modelPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                var model = _mlContext.Model.Load(stream, out _);
+                _models[outcome.Id] = model;
+            }
         }
-
-        using var fileStream = new FileStream(modelPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        _model = _mlContext.Model.Load(fileStream, out _);
-        _predictionEngine = _mlContext.Model.CreatePredictionEngine<ForecastModelInput, ForecastModelOutput>(_model);
     }
 
     public async Task<(string OutcomeName, double Confidence)> PredictBestOutcomeAsync(int matchId)
     {
         var forecasts = await _forecastReadRepository.GetAll()
-            .Where(x => x.MatchId == matchId && !x.IsDeleted)
+            .Where(x => x.MatchId == matchId)
             .Include(x => x.Outcome)
+            .Include(x => x.Match)
             .ToListAsync();
 
-        var best = forecasts
-            .Select(f =>
+        var predictions = new List<(string OutcomeName, double Confidence)>();
+
+        foreach (var forecast in forecasts)
+        {
+            if (!_models.TryGetValue(forecast.OutcomeId, out var model))
+                continue;
+
+            var predictionEngine = _mlContext.Model.CreatePredictionEngine<ForecastModelInput, ForecastModelOutput>(model);
+
+            var input = new ForecastModelInput
             {
-                var input = new ForecastModelInput
-                {
-                    OutcomeId = f.OutcomeId,
-                    StreakCount = f.StreakCount,
-                    MaxStreak = f.MaxStreak,
-                    Ratio = (float)f.Ratio
-                };
+                OutcomeId = forecast.OutcomeId,
+                StreakCount = forecast.StreakCount,
+                MaxStreak = forecast.MaxStreak,
+                Ratio = (float)forecast.Ratio
+            };
 
-                var prediction = _predictionEngine.Predict(input);
-                return new
-                {
-                    f.Outcome.Name,
-                    Probability = prediction.Probability
-                };
-            })
-            .OrderByDescending(x => x.Probability)
-            .FirstOrDefault();
+            var prediction = predictionEngine.Predict(input);
+            predictions.Add((forecast.Outcome.Name, Math.Round(prediction.Probability, 3)));
+        }
 
-        return best != null
-            ? (best.Name, Math.Round(best.Probability, 3))
-            : ("No prediction", 0);
+        var best = predictions.OrderByDescending(p => p.Confidence).FirstOrDefault();
+        return best;
     }
 }
