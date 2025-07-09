@@ -5,7 +5,6 @@ using Application.Params;
 using Application.Repositories;
 using Application.Repositories.AiForecastRepositories;
 using Application.Repositories.ForecastRepositories;
-using Application.Repositories.OutcomeRepositories;
 using Application.Services;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -21,47 +20,39 @@ public class AiForecastService : IAiForecastService
     private readonly IAiForecastWriteRepository _writeRepository;
     private readonly IAiForecastReadRepository _readRepository;
     private readonly IForecastReadRepository _forecastReadRepository;
-    private readonly IOutcomeReadRepository _outcomeReadRepository;
-    private readonly Dictionary<int, ITransformer> _models;
-    private readonly MLContext _mlContext;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly MLContext _mlContext;
+    private readonly PredictionEngine<ForecastModelInput, ForecastModelOutput>? _predictionEngine;
 
     public AiForecastService(
         IAiForecastWriteRepository writeRepository,
         IAiForecastReadRepository readRepository,
         IForecastReadRepository forecastReadRepository,
-        IOutcomeReadRepository outcomeReadRepository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
     {
         _writeRepository = writeRepository;
         _readRepository = readRepository;
         _forecastReadRepository = forecastReadRepository;
-        _outcomeReadRepository = outcomeReadRepository;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _mlContext = new MLContext();
-        _models = new Dictionary<int, ITransformer>();
-        LoadAllModels().GetAwaiter().GetResult();
+
+        _predictionEngine = LoadModel();
     }
 
-    private async Task LoadAllModels()
+    private PredictionEngine<ForecastModelInput, ForecastModelOutput>? LoadModel()
     {
         var modelDir = Path.Combine(AppContext.BaseDirectory, "Model");
+        var modelPath = Path.Combine(modelDir, "ForecastPredictionModel.zip");
 
-        var outcomes = await _outcomeReadRepository.GetAll().ToListAsync();
+        if (!File.Exists(modelPath))
+            throw new FileNotFoundException("ForecastPredictionModel.zip tapılmadı", modelPath);
 
-        foreach (var outcome in outcomes)
-        {
-            var modelPath = Path.Combine(modelDir, $"ForecastModel_{outcome.Code}.zip");
-            if (File.Exists(modelPath))
-            {
-                using var stream = new FileStream(modelPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var model = _mlContext.Model.Load(stream, out _);
-                _models[outcome.Id] = model;
-            }
-        }
+        using var stream = new FileStream(modelPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var model = _mlContext.Model.Load(stream, out _);
+        return _mlContext.Model.CreatePredictionEngine<ForecastModelInput, ForecastModelOutput>(model);
     }
 
     public async Task<Result<AiForecastDto>> GetByForecastIdAsync(int forecastId)
@@ -91,7 +82,7 @@ public class AiForecastService : IAiForecastService
         return Result<List<AiForecastDto>>.Success(aiForecasts);
     }
 
-    public async Task<Result<bool>> AddAiForecastAsync(int forecastId, string predictedOutcomeName, double confidence, string modelVersion)
+    public async Task<Result<bool>> AddAiForecastAsync(int forecastId, double probability, string modelVersion)
     {
         var forecast = await _forecastReadRepository.GetAll()
             .FirstOrDefaultAsync(x => x.Id == forecastId);
@@ -102,8 +93,8 @@ public class AiForecastService : IAiForecastService
         var aiForecast = new AiForecast
         {
             ForecastId = forecastId,
-            PredictedOutcomeName = predictedOutcomeName,
-            Confidence = confidence,
+            MatchId = forecast.MatchId,
+            ProbabilityOfCorrectness = probability,
             ModelVersion = modelVersion
         };
 
@@ -116,13 +107,12 @@ public class AiForecastService : IAiForecastService
     public async Task<Result<bool>> SetIsCorrectAsync(int forecastId, bool isCorrect)
     {
         var aiForecast = await _readRepository.GetAll()
-            .Where(x => x.ForecastId == forecastId)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(x => x.ForecastId == forecastId);
 
         if (aiForecast == null)
             return Result<bool>.Failure("AI forecast not found", 404);
 
-        aiForecast.IsCorrect = isCorrect;
+        aiForecast.IsActuallyCorrect = isCorrect;
         await _unitOfWork.SaveChangesAsync();
 
         return Result<bool>.Success(true);
@@ -131,10 +121,9 @@ public class AiForecastService : IAiForecastService
     public async Task<Result<double>> GetAccuracyAsync(AiForecastFilterParams filters)
     {
         var query = _readRepository.GetAll()
-            .Include(x => x.Forecast)
-            .ThenInclude(f => f.Match)
+            .Include(x => x.Forecast).ThenInclude(f => f.Match)
             .ThenInclude(m => m.MatchTeamSeasonLeagues)
-            .Where(x => x.IsCorrect.HasValue);
+            .Where(x => x.IsActuallyCorrect.HasValue);
 
         if (filters.StartDate.HasValue)
             query = query.Where(x => x.Forecast.Match.MatchDate >= filters.StartDate.Value);
@@ -147,231 +136,27 @@ public class AiForecastService : IAiForecastService
                 .Any(mtsl => mtsl.LeagueId == filters.LeagueId.Value));
 
         var forecasts = await query.ToListAsync();
-
         if (forecasts.Count == 0)
             return Result<double>.Success(0);
 
-        int correctCount = forecasts.Count(x => x.IsCorrect == true);
-        double accuracy = (double)correctCount / forecasts.Count * 100;
-
+        var accuracy = (double)forecasts.Count(x => x.IsActuallyCorrect == true) / forecasts.Count * 100;
         return Result<double>.Success(Math.Round(accuracy, 2));
     }
 
-    public async Task<AiForecastPreviewDto> PreviewForecastAsync(int matchId)
-    {
-        var forecasts = await _forecastReadRepository.GetAll()
-            .Where(x => x.MatchId == matchId)
-            .Include(x => x.Outcome)
-            .Include(x => x.Match)
-            .ToListAsync();
-
-        var allPredictions = new List<OutcomePredictionDto>();
-        string bestOutcome = "N/A";
-        double bestConfidence = 0;
-
-        foreach (var forecast in forecasts)
-        {
-            if (!_models.TryGetValue(forecast.OutcomeId, out var model))
-                continue;
-
-            var predictionEngine = _mlContext.Model.CreatePredictionEngine<ForecastModelInput, ForecastModelOutput>(model);
-
-            var input = new ForecastModelInput
-            {
-                OutcomeId = forecast.OutcomeId,
-                StreakCount = forecast.StreakCount,
-                MaxStreak = forecast.MaxStreak,
-                Ratio = (float)forecast.Ratio
-            };
-
-            var prediction = predictionEngine.Predict(input);
-            var confidence = Math.Round(prediction.Probability, 3);
-
-            allPredictions.Add(new OutcomePredictionDto
-            {
-                Outcome = forecast.Outcome.Name,
-                Confidence = confidence
-            });
-
-            if (confidence > bestConfidence)
-            {
-                bestConfidence = confidence;
-                bestOutcome = forecast.Outcome.Name;
-            }
-        }
-
-        return new AiForecastPreviewDto
-        {
-            MatchId = matchId,
-            AllOutcomePredictions = allPredictions.OrderByDescending(x => x.Confidence).ToList(),
-            BestForecastOutcome = bestOutcome,
-            BestConfidence = bestConfidence,
-            ModelVersion = "v3-" + bestOutcome.ToUpper().Replace(" ", "_")
-        };
-    }
-
-    public async Task<Result<bool>> GenerateAiForecastForLastSeasonAsync(int seasonId)
-    {
-        var matchIds = await _forecastReadRepository.GetAll()
-            .Where(x => x.Match.MatchTeamSeasonLeagues.Any(mtsl => mtsl.SeasonId == seasonId))
-            .Select(x => x.MatchId)
-            .Distinct()
-            .ToListAsync();
-
-        foreach (var matchId in matchIds)
-        {
-            var aiPreview = await PreviewForecastAsync(matchId);
-
-            if (aiPreview != null && aiPreview.AllOutcomePredictions.Any())
-            {
-                var bestForecast = await _forecastReadRepository.GetAll()
-                    .Where(x => x.MatchId == matchId)
-                    .Include(x => x.Outcome)
-                    .Include(x => x.Match)
-                    .FirstOrDefaultAsync(x => x.Outcome.Name == aiPreview.BestForecastOutcome);
-
-                if (bestForecast != null)
-                {
-                    await AddAiForecastAsync(
-                        bestForecast.Id,
-                        aiPreview.BestForecastOutcome,
-                        aiPreview.BestConfidence,
-                        aiPreview.ModelVersion
-                    );
-
-                    if (bestForecast.Match.IsCompleted)
-                    {
-                        bool isCorrect = ForecastHelper.CheckIsCorrect(bestForecast.Match, aiPreview.BestForecastOutcome);
-
-                        var aiForecast = await _readRepository.GetAll()
-                            .FirstOrDefaultAsync(x => x.ForecastId == bestForecast.Id);
-
-                        if (aiForecast != null)
-                        {
-                            aiForecast.IsCorrect = isCorrect;
-                        }
-                    }
-                }
-            }
-        }
-
-        await _unitOfWork.SaveChangesAsync();
-        return Result<bool>.Success(true);
-    }
-
-
-    public async Task<Result<PagedResult<ForecastComparisonDto>>> GetForecastComparisonAsync(AiForecastFilterParams filters)
-    {
-        var aiForecasts = await _readRepository.GetAll()
-            .Include(x => x.Forecast)
-                .ThenInclude(f => f.Match)
-                    .ThenInclude(m => m.Team1)
-            .Include(x => x.Forecast)
-                .ThenInclude(f => f.Match)
-                    .ThenInclude(m => m.Team2)
-            .Include(x => x.Forecast)
-                .ThenInclude(f => f.Match)
-                    .ThenInclude(m => m.MatchTeamSeasonLeagues)
-            .ToListAsync();
-
-        var classicForecasts = await _forecastReadRepository.GetAll()
-            .Include(x => x.Outcome)
-            .Where(x => x.IsForecasted)
-            .GroupBy(x => x.MatchId)
-            .ToDictionaryAsync(g => g.Key, g => g.OrderByDescending(f => f.Ratio).FirstOrDefault());
-
-        var grouped = aiForecasts.GroupBy(x => x.Forecast.MatchId).ToList();
-        var result = new List<ForecastComparisonDto>();
-
-        foreach (var group in grouped)
-        {
-            var match = group.First().Forecast.Match;
-            var matchId = match.Id;
-
-            if (filters.LeagueId.HasValue && !match.MatchTeamSeasonLeagues.Any(x => x.LeagueId == filters.LeagueId.Value))
-                continue;
-
-            if (filters.StartDate.HasValue && match.MatchDate < filters.StartDate.Value)
-                continue;
-
-            if (filters.EndDate.HasValue && match.MatchDate > filters.EndDate.Value)
-                continue;
-
-            classicForecasts.TryGetValue(matchId, out var bestClassic);
-
-            var ai = group.FirstOrDefault(x => x.ForecastId == bestClassic?.Id)
-                     ?? group.FirstOrDefault();
-
-            result.Add(new ForecastComparisonDto
-            {
-                MatchId = matchId,
-                Team1Name = match.Team1.Name,
-                Team2Name = match.Team2.Name,
-                ClassicForecastOutcome = bestClassic?.Outcome?.Name,
-                ClassicIsCorrect = bestClassic?.IsCorrect,
-                AiForecastOutcome = ai?.PredictedOutcomeName,
-                AiIsCorrect = ai?.IsCorrect
-            });
-        }
-
-        var pagedResult = await PagedResult<ForecastComparisonDto>.CreateFromListAsync(
-            result, filters.PageNumber, filters.PageSize, CancellationToken.None);
-
-        return Result<PagedResult<ForecastComparisonDto>>.Success(pagedResult);
-    }
-
-    public async Task<Result<PagedResult<AiForecastTrendDto>>> GetTrendReportAsync(AiForecastFilterParams filters)
-    {
-        var query = _readRepository.GetAll()
-            .Include(x => x.Forecast)
-            .ThenInclude(f => f.Match)
-            .ThenInclude(m => m.MatchTeamSeasonLeagues)
-            .Where(x => x.IsCorrect.HasValue);
-
-        if (filters.StartDate.HasValue)
-            query = query.Where(x => x.Forecast.Match.MatchDate >= filters.StartDate.Value);
-
-        if (filters.EndDate.HasValue)
-            query = query.Where(x => x.Forecast.Match.MatchDate <= filters.EndDate.Value);
-
-        if (filters.LeagueId.HasValue)
-            query = query.Where(x => x.Forecast.Match.MatchTeamSeasonLeagues
-                .Any(mtsl => mtsl.LeagueId == filters.LeagueId.Value));
-
-        var groupedQuery = query
-            .GroupBy(x => x.Forecast.Match.MatchDate.Date)
-            .Select(g => new AiForecastTrendDto
-            {
-                Date = g.Key,
-                Total = g.Count(),
-                Correct = g.Count(x => x.IsCorrect == true),
-                Accuracy = Math.Round((double)g.Count(x => x.IsCorrect == true) / g.Count() * 100, 2)
-            })
-            .OrderByDescending(x => x.Date);
-
-        var pagedResult = await PagedResult<AiForecastTrendDto>.CreateAsync(
-            groupedQuery,
-            filters.PageNumber,
-            filters.PageSize,
-            CancellationToken.None);
-
-        return Result<PagedResult<AiForecastTrendDto>>.Success(pagedResult);
-    }
-    
     public async Task<Result<bool>> RemoveByForecastIdsAsync(List<int> forecastIds)
     {
         await _writeRepository.RemoveByForecastIdsAsync(forecastIds);
         await _unitOfWork.SaveChangesAsync();
         return Result<bool>.Success(true);
     }
-    
+
     public async Task<Result<bool>> RemoveAllAsync()
     {
         await _writeRepository.RemoveAllAsync();
         await _unitOfWork.SaveChangesAsync();
         return Result<bool>.Success(true);
     }
-    
+
     public async Task<Result<List<AiForecastDto>>> GetAllByMatchIdWithTeamsAsync(int matchId)
     {
         var forecasts = await _readRepository.GetAll()
@@ -388,9 +173,9 @@ public class AiForecastService : IAiForecastService
         {
             Id = x.Id,
             ForecastId = x.ForecastId,
-            PredictedOutcomeName = x.PredictedOutcomeName,
-            Confidence = x.Confidence,
-            IsCorrect = x.IsCorrect,
+            MatchId = x.MatchId,
+            ProbabilityOfCorrectness = x.ProbabilityOfCorrectness,
+            IsActuallyCorrect = x.IsActuallyCorrect,
             ModelVersion = x.ModelVersion,
             Team1Name = x.Forecast.Match.Team1?.Name ?? "Team 1",
             Team2Name = x.Forecast.Match.Team2?.Name ?? "Team 2"
@@ -399,4 +184,138 @@ public class AiForecastService : IAiForecastService
         return Result<List<AiForecastDto>>.Success(result);
     }
 
-} 
+    public async Task<AiForecastPreviewDto> PreviewForecastAsync(int matchId)
+    {
+        if (_predictionEngine == null)
+            throw new InvalidOperationException("ML modeli yüklənməyib.");
+
+        var forecasts = await _forecastReadRepository.GetAll()
+            .Where(x => x.MatchId == matchId)
+            .Include(x => x.Outcome)
+            .ToListAsync();
+
+        var predictions = forecasts.Select(f =>
+        {
+            var input = new ForecastModelInput
+            {
+                StreakCount = f.StreakCount,
+                MaxStreak = f.MaxStreak,
+                Ratio = (float)f.Ratio
+            };
+
+            var result = _predictionEngine.Predict(input);
+            return new OutcomePredictionDto
+            {
+                Outcome = f.Outcome.Name,
+                Confidence = Math.Round(result.Probability, 3)
+            };
+        }).ToList();
+
+        var best = predictions.OrderByDescending(p => p.Confidence).FirstOrDefault();
+
+        return new AiForecastPreviewDto
+        {
+            MatchId = matchId,
+            AllOutcomePredictions = predictions,
+            BestForecastOutcome = best?.Outcome ?? "N/A",
+            BestConfidence = best?.Confidence ?? 0,
+            ModelVersion = "v3"
+        };
+    }
+
+    public async Task<Result<bool>> GenerateAiForecastForLastSeasonAsync(int seasonId)
+{
+    if (_predictionEngine == null)
+        return Result<bool>.Failure("ML modeli yüklənməyib.", 500);
+
+    var matchIds = await _forecastReadRepository.GetAll()
+        .Where(x => x.Match.MatchTeamSeasonLeagues.Any(m => m.SeasonId == seasonId))
+        .Select(x => x.MatchId)
+        .Distinct()
+        .ToListAsync();
+
+    foreach (var matchId in matchIds)
+    {
+        var forecasts = await _forecastReadRepository.GetAll()
+            .Where(x => x.MatchId == matchId && x.IsForecasted)
+            .Include(x => x.Outcome)
+            .Include(x => x.Match)
+                .ThenInclude(m => m.Outcomes) // 💡 Əsas düzəliş budur
+            .ToListAsync();
+
+        if (!forecasts.Any())
+            continue;
+
+        var predictions = forecasts.Select(f =>
+        {
+            var input = new ForecastModelInput
+            {
+                StreakCount = f.StreakCount,
+                MaxStreak = f.MaxStreak,
+                Ratio = (float)f.Ratio
+            };
+
+            var result = _predictionEngine.Predict(input);
+            return new
+            {
+                Forecast = f,
+                Probability = Math.Round(result.Probability, 3)
+            };
+        }).ToList();
+
+        var best = predictions.OrderByDescending(p => p.Probability).FirstOrDefault();
+        if (best == null)
+            continue;
+
+        var aiForecast = new AiForecast
+        {
+            ForecastId = best.Forecast.Id,
+            MatchId = best.Forecast.MatchId,
+            ProbabilityOfCorrectness = best.Probability,
+            ModelVersion = "v3",
+            IsActuallyCorrect = best.Forecast.Match.IsCompleted
+                ? best.Forecast.Match.Outcomes.Any(o =>
+                      o.TeamId == best.Forecast.TeamId &&
+                      o.OutcomeId == best.Forecast.OutcomeId)
+                : null
+        };
+
+        await _writeRepository.AddAsync(aiForecast);
+    }
+
+    await _unitOfWork.SaveChangesAsync();
+    return Result<bool>.Success(true);
+}
+
+
+    public async Task<Result<PagedResult<AiForecastTrendDto>>> GetTrendReportAsync(AiForecastFilterParams filters)
+    {
+        var query = _readRepository.GetAll()
+            .Include(x => x.Forecast)
+            .ThenInclude(f => f.Match)
+            .ThenInclude(m => m.MatchTeamSeasonLeagues)
+            .Where(x => x.IsActuallyCorrect.HasValue);
+
+        if (filters.StartDate.HasValue)
+            query = query.Where(x => x.Forecast.Match.MatchDate >= filters.StartDate);
+        if (filters.EndDate.HasValue)
+            query = query.Where(x => x.Forecast.Match.MatchDate <= filters.EndDate);
+        if (filters.LeagueId.HasValue)
+            query = query.Where(x => x.Forecast.Match.MatchTeamSeasonLeagues.Any(m => m.LeagueId == filters.LeagueId));
+
+        var grouped = await query.GroupBy(x => x.Forecast.Match.MatchDate.Date)
+            .Select(g => new AiForecastTrendDto
+            {
+                Date = g.Key,
+                Total = g.Count(),
+                Correct = g.Count(x => x.IsActuallyCorrect == true),
+                Accuracy = Math.Round((double)g.Count(x => x.IsActuallyCorrect == true) / g.Count() * 100, 2)
+            })
+            .OrderByDescending(x => x.Date)
+            .ToListAsync();
+
+        return Result<PagedResult<AiForecastTrendDto>>.Success(
+            await PagedResult<AiForecastTrendDto>.CreateFromListAsync(grouped, filters.PageNumber, filters.PageSize, CancellationToken.None)
+        );
+    }
+}

@@ -121,14 +121,14 @@ public class ForecastService : IForecastService
                 {
                     await _aiForecastService.AddAiForecastAsync(
                         bestForecast.Id,
-                        aiPreview.BestForecastOutcome,
                         aiPreview.BestConfidence,
                         aiPreview.ModelVersion
                     );
 
                     if (bestForecast.Match.IsCompleted)
                     {
-                        bool isCorrect = ForecastHelper.CheckIsCorrect(bestForecast.Match, aiPreview.BestForecastOutcome);
+                        bool isCorrect = bestForecast.Match.Outcomes
+                            .Any(o => o.TeamId == bestForecast.TeamId && o.OutcomeId == bestForecast.OutcomeId);
 
                         var aiForecast = await _aiForecastService.GetByForecastIdAsync(bestForecast.Id);
                         if (aiForecast.IsSuccess && aiForecast.Value is { })
@@ -264,9 +264,17 @@ public async Task<Result<bool>> GenerateAllForecastsAsync()
                 var aiForecastResult = await _aiForecastService.GetByForecastIdAsync(forecast.Id);
                 if (aiForecastResult.IsSuccess && aiForecastResult.Value is { } ai)
                 {
-                    bool isCorrectAi = ForecastHelper.CheckIsCorrect(match, ai.PredictedOutcomeName);
+                    var forecastEntity = await _readRepository.GetAll()
+                        .Include(f => f.Match)
+                        .FirstOrDefaultAsync(f => f.Id == ai.ForecastId);
 
-                    await _aiForecastService.SetIsCorrectAsync(forecast.Id, isCorrectAi);
+                    if (forecastEntity != null)
+                    {
+                        bool isCorrectAi = forecastEntity.Match.Outcomes
+                            .Any(o => o.TeamId == forecastEntity.TeamId && o.OutcomeId == forecastEntity.OutcomeId);
+
+                        await _aiForecastService.SetIsCorrectAsync(forecast.Id, isCorrectAi);
+                    }
                 }
             }
 
@@ -281,6 +289,7 @@ public async Task<Result<bool>> GenerateAllForecastsAsync()
             throw;
         }
     }
+
     
     public async Task<Result<List<ForecastDto>>> GetByMatchIdAsync(int matchId)
     {

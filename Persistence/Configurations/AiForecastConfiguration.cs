@@ -12,15 +12,14 @@ public class AiForecastConfiguration : IEntityTypeConfiguration<AiForecast>
 
         builder.HasKey(af => af.Id);
 
-        builder.Property(af => af.PredictedOutcomeName)
-            .IsRequired()
-            .HasMaxLength(100);
+        builder.Property(af => af.MatchId)
+            .IsRequired();
 
-        builder.Property(af => af.Confidence)
+        builder.Property(af => af.ProbabilityOfCorrectness)
             .IsRequired()
             .HasColumnType("float");
-        
-        builder.Property(x => x.IsCorrect)
+
+        builder.Property(af => af.IsActuallyCorrect)
             .IsRequired(false);
 
         builder.Property(af => af.ModelVersion)

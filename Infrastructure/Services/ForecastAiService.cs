@@ -1,5 +1,4 @@
 ﻿using Application.Repositories.ForecastRepositories;
-using Application.Repositories.OutcomeRepositories;
 using Application.Services;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -11,41 +10,32 @@ namespace Infrastructure.Services;
 public class ForecastAiService : IForecastAiService
 {
     private readonly IForecastReadRepository _forecastReadRepository;
-    private readonly IOutcomeReadRepository _outcomeReadRepository;
     private readonly IMapper _mapper;
     private readonly MLContext _mlContext;
-    private readonly Dictionary<int, ITransformer> _models;
+    private PredictionEngine<ForecastModelInput, ForecastModelOutput>? _predictionEngine;
 
     public ForecastAiService(
         IForecastReadRepository forecastReadRepository,
-        IOutcomeReadRepository outcomeReadRepository,
         IMapper mapper)
     {
         _forecastReadRepository = forecastReadRepository;
-        _outcomeReadRepository = outcomeReadRepository;
         _mapper = mapper;
         _mlContext = new MLContext();
-        _models = new Dictionary<int, ITransformer>();
 
-        LoadAllModels().GetAwaiter().GetResult(); // Sync call for constructor
+        LoadSingleModel(); 
     }
 
-    private async Task LoadAllModels()
+    private void LoadSingleModel()
     {
         var modelDir = Path.Combine(AppContext.BaseDirectory, "Model");
+        var modelPath = Path.Combine(modelDir, "ForecastPredictionModel.zip");
 
-        var outcomes = await _outcomeReadRepository.GetAll().ToListAsync();
+        if (!File.Exists(modelPath))
+            throw new FileNotFoundException("Forecast ML model faylı tapılmadı.", modelPath);
 
-        foreach (var outcome in outcomes)
-        {
-            var modelPath = Path.Combine(modelDir, $"ForecastModel_{outcome.Code}.zip");
-            if (File.Exists(modelPath))
-            {
-                using var stream = new FileStream(modelPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var model = _mlContext.Model.Load(stream, out _);
-                _models[outcome.Id] = model;
-            }
-        }
+        using var stream = new FileStream(modelPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var model = _mlContext.Model.Load(stream, out _);
+        _predictionEngine = _mlContext.Model.CreatePredictionEngine<ForecastModelInput, ForecastModelOutput>(model);
     }
 
     public async Task<(string OutcomeName, double Confidence)> PredictBestOutcomeAsync(int matchId)
@@ -56,24 +46,21 @@ public class ForecastAiService : IForecastAiService
             .Include(x => x.Match)
             .ToListAsync();
 
+        if (_predictionEngine == null || !forecasts.Any())
+            return ("N/A", 0);
+
         var predictions = new List<(string OutcomeName, double Confidence)>();
 
         foreach (var forecast in forecasts)
         {
-            if (!_models.TryGetValue(forecast.OutcomeId, out var model))
-                continue;
-
-            var predictionEngine = _mlContext.Model.CreatePredictionEngine<ForecastModelInput, ForecastModelOutput>(model);
-
             var input = new ForecastModelInput
             {
-                OutcomeId = forecast.OutcomeId,
                 StreakCount = forecast.StreakCount,
                 MaxStreak = forecast.MaxStreak,
                 Ratio = (float)forecast.Ratio
             };
 
-            var prediction = predictionEngine.Predict(input);
+            var prediction = _predictionEngine.Predict(input);
             predictions.Add((forecast.Outcome.Name, Math.Round(prediction.Probability, 3)));
         }
 

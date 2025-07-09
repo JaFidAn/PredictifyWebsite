@@ -64,20 +64,6 @@ public class AiForecastsController : BaseApiController
 
         return Ok(result.Value);
     }
-
-    /// <summary>
-    /// Compare AI vs Classic forecast results with filtering
-    /// </summary>
-    [HttpGet("compare")]
-    [ProducesResponseType(typeof(PagedResult<ForecastComparisonDto>), 200)]
-    public async Task<IActionResult> CompareForecasts([FromQuery] AiForecastFilterParams filters)
-    {
-        var result = await _aiForecastService.GetForecastComparisonAsync(filters);
-        if (!result.IsSuccess)
-            return Problem(result.Error);
-
-        return Ok(result.Value);
-    }
     
     /// <summary>
     /// Preview AI forecast outcome probabilities for a specific match (without saving to DB)
