@@ -30,4 +30,27 @@ public class PagedResult<T>
             TotalPages = (int)Math.Ceiling(count / (double)pageSize)
         };
     }
+
+    public static Task<PagedResult<T>> CreateFromListAsync(List<T> source, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        pageNumber = pageNumber < 1 ? 1 : pageNumber;
+        pageSize = pageSize < 1 ? 10 : pageSize;
+
+        var count = source.Count;
+        var items = source
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        var result = new PagedResult<T>
+        {
+            Items = items,
+            CurrentPage = pageNumber,
+            PageSize = pageSize,
+            TotalCount = count,
+            TotalPages = (int)Math.Ceiling(count / (double)pageSize)
+        };
+
+        return Task.FromResult(result);
+    }
 }

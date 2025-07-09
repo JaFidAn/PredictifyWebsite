@@ -11,6 +11,9 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
 
+    // ✅ Disable audit logging flag
+    public bool DisableAuditLogging { get; set; } = false;
+
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IHttpContextAccessor httpContextAccessor)
         : base(options)
     {
@@ -29,6 +32,8 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
     public DbSet<Match> Matches { get; set; }
     public DbSet<MatchTeamSeasonLeague> MatchTeamSeasonLeagues { get; set; }
     public DbSet<TeamOutcomeStreak> TeamOutcomeStreaks { get; set; }
+    public DbSet<Forecast> Forecasts { get; set; }
+    public DbSet<AiForecast> AiForecasts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,17 +43,20 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        var httpContext = _httpContextAccessor.HttpContext;
-        var userId = httpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        var ipAddress = httpContext?.Connection.RemoteIpAddress?.ToString();
-        var userAgent = httpContext?.Request.Headers["User-Agent"].ToString();
-        var endpoint = httpContext?.Request.Path;
-
-        var auditLogs = ChangeTracker.GenerateAuditLogs(userId, ipAddress, userAgent, endpoint);
-
-        if (auditLogs.Any())
+        if (!DisableAuditLogging)
         {
-            AuditLogs.AddRange(auditLogs);
+            var httpContext = _httpContextAccessor.HttpContext;
+            var userId = httpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var ipAddress = httpContext?.Connection.RemoteIpAddress?.ToString();
+            var userAgent = httpContext?.Request.Headers["User-Agent"].ToString();
+            var endpoint = httpContext?.Request.Path;
+
+            var auditLogs = ChangeTracker.GenerateAuditLogs(userId, ipAddress, userAgent, endpoint);
+
+            if (auditLogs.Any())
+            {
+                AuditLogs.AddRange(auditLogs);
+            }
         }
 
         return await base.SaveChangesAsync(cancellationToken);

@@ -2,7 +2,6 @@ using Application.Core;
 using Application.DTOs.Auth;
 using Application.Services;
 using Application.Utilities;
-using Application.Utulity;
 using Domain.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;

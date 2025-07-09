@@ -5,19 +5,24 @@ using Persistence.Contexts;
 
 namespace Persistence.Repositories.TeamOutcomeStreakRepositories;
 
-public class TeamOutcomeStreakReadRepository : ReadRepository<TeamOutcomeStreak, int>, ITeamOutcomeStreakReadRepository
+public class TeamOutcomeStreakReadRepository : ITeamOutcomeStreakReadRepository
 {
     private readonly ApplicationDbContext _context;
 
-    public TeamOutcomeStreakReadRepository(ApplicationDbContext context) : base(context)
+    public TeamOutcomeStreakReadRepository(ApplicationDbContext context)
     {
         _context = context;
+    }
+
+    public IQueryable<TeamOutcomeStreak> GetAll()
+    {
+        return _context.TeamOutcomeStreaks.AsQueryable();
     }
 
     public async Task<List<TeamOutcomeStreak>> GetByTeamIdAsync(int teamId, CancellationToken cancellationToken = default)
     {
         return await _context.TeamOutcomeStreaks
-            .Where(x => !x.IsDeleted && x.TeamId == teamId)
+            .Where(x => x.TeamId == teamId)
             .Include(x => x.Team)
             .Include(x => x.Outcome)
             .OrderByDescending(x => x.MatchDate)

@@ -1,5 +1,5 @@
 using Domain.Entities;
-using Application.Utulity;
+using Application.Utilities;
 
 namespace Application.Helpers;
 
@@ -9,41 +9,53 @@ public static class OutcomeDeterminationHelper
     {
         var result = new List<MatchOutcome>();
 
+        var totalGoals = (match.Team1Goals ?? 0) + (match.Team2Goals ?? 0);
+
         foreach (var outcome in outcomes)
         {
-            switch (outcome.Code.ToUpper())
+            switch (outcome.Code.ToUpperInvariant())
             {
                 case SD.WIN:
-                    AddOutcomeIf(match, result, outcome, match.Team1Goals > match.Team2Goals, match.Team1Id);
-                    AddOutcomeIf(match, result, outcome, match.Team2Goals > match.Team1Goals, match.Team2Id);
+                    if (match.Team1Goals > match.Team2Goals)
+                    {
+                        AddOutcome(result, match.Id, outcome.Id, match.Team1Id);
+                    }
+                    if (match.Team2Goals > match.Team1Goals)
+                    {
+                        AddOutcome(result, match.Id, outcome.Id, match.Team2Id);
+                    }
+                    break;
+
+                case SD.LOSE:
+                    if (match.Team1Goals < match.Team2Goals)
+                    {
+                        AddOutcome(result, match.Id, outcome.Id, match.Team1Id);
+                    }
+                    if (match.Team2Goals < match.Team1Goals)
+                    {
+                        AddOutcome(result, match.Id, outcome.Id, match.Team2Id);
+                    }
                     break;
 
                 case SD.DRAW:
                     if (match.Team1Goals == match.Team2Goals)
                     {
-                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team1Id });
-                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team2Id });
+                        AddOutcome(result, match.Id, outcome.Id, match.Team1Id);
+                        AddOutcome(result, match.Id, outcome.Id, match.Team2Id);
                     }
                     break;
 
-                case SD.LOSE:
-                    AddOutcomeIf(match, result, outcome, match.Team1Goals < match.Team2Goals, match.Team1Id);
-                    AddOutcomeIf(match, result, outcome, match.Team2Goals < match.Team1Goals, match.Team2Id);
-                    break;
-
-                case SD.OVER_2_5:
-                    if ((match.Team1Goals + match.Team2Goals) > 2)
+                case SD.OVER_3_5:
+                    if (totalGoals > 3)
                     {
-                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team1Id });
-                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team2Id });
+                        AddBothTeamsOutcome(result, match.Id, outcome.Id, match.Team1Id, match.Team2Id);
                     }
                     break;
 
-                case SD.UNDER_2_5:
-                    if ((match.Team1Goals + match.Team2Goals) <= 2)
+                case SD.UNDER_1_5:
+                    if (totalGoals <= 1)
                     {
-                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team1Id });
-                        result.Add(new MatchOutcome { MatchId = match.Id, OutcomeId = outcome.Id, TeamId = match.Team2Id });
+                        AddBothTeamsOutcome(result, match.Id, outcome.Id, match.Team1Id, match.Team2Id);
                     }
                     break;
             }
@@ -55,52 +67,44 @@ public static class OutcomeDeterminationHelper
     public static List<int> DetermineOutcomesForTeam(Match match, List<Outcome> outcomes, int teamId)
     {
         var result = new List<int>();
+        var totalGoals = (match.Team1Goals ?? 0) + (match.Team2Goals ?? 0);
 
         foreach (var outcome in outcomes)
         {
-            switch (outcome.Code.ToUpper())
+            switch (outcome.Code.ToUpperInvariant())
             {
                 case SD.WIN:
-                    if (match.Team1Goals > match.Team2Goals && match.Team1Id == teamId)
-                    {
-                        result.Add(outcome.Id);
-                    }
-                    if (match.Team2Goals > match.Team1Goals && match.Team2Id == teamId)
+                    if ((match.Team1Goals > match.Team2Goals && teamId == match.Team1Id) ||
+                        (match.Team2Goals > match.Team1Goals && teamId == match.Team2Id))
                     {
                         result.Add(outcome.Id);
                     }
                     break;
 
                 case SD.LOSE:
-                    if (match.Team1Goals < match.Team2Goals && match.Team1Id == teamId)
-                    {
-                        result.Add(outcome.Id);
-                    }
-                    if (match.Team2Goals < match.Team1Goals && match.Team2Id == teamId)
+                    if ((match.Team1Goals < match.Team2Goals && teamId == match.Team1Id) ||
+                        (match.Team2Goals < match.Team1Goals && teamId == match.Team2Id))
                     {
                         result.Add(outcome.Id);
                     }
                     break;
 
                 case SD.DRAW:
-                    if (match.Team1Goals == match.Team2Goals &&
-                        (match.Team1Id == teamId || match.Team2Id == teamId))
+                    if (match.Team1Goals == match.Team2Goals && (teamId == match.Team1Id || teamId == match.Team2Id))
                     {
                         result.Add(outcome.Id);
                     }
                     break;
 
-                case SD.OVER_2_5:
-                    if ((match.Team1Goals + match.Team2Goals) > 2 &&
-                        (match.Team1Id == teamId || match.Team2Id == teamId))
+                case SD.OVER_3_5:
+                    if (totalGoals > 3 && (teamId == match.Team1Id || teamId == match.Team2Id))
                     {
                         result.Add(outcome.Id);
                     }
                     break;
 
-                case SD.UNDER_2_5:
-                    if ((match.Team1Goals + match.Team2Goals) <= 2 &&
-                        (match.Team1Id == teamId || match.Team2Id == teamId))
+                case SD.UNDER_1_5:
+                    if (totalGoals <= 1 && (teamId == match.Team1Id || teamId == match.Team2Id))
                     {
                         result.Add(outcome.Id);
                     }
@@ -111,16 +115,19 @@ public static class OutcomeDeterminationHelper
         return result;
     }
 
-    private static void AddOutcomeIf(Match match, List<MatchOutcome> result, Outcome outcome, bool condition, int teamId)
+    private static void AddOutcome(List<MatchOutcome> result, int matchId, int outcomeId, int teamId)
     {
-        if (condition)
+        result.Add(new MatchOutcome
         {
-            result.Add(new MatchOutcome
-            {
-                MatchId = match.Id,
-                OutcomeId = outcome.Id,
-                TeamId = teamId
-            });
-        }
+            MatchId = matchId,
+            OutcomeId = outcomeId,
+            TeamId = teamId
+        });
+    }
+
+    private static void AddBothTeamsOutcome(List<MatchOutcome> result, int matchId, int outcomeId, int team1Id, int team2Id)
+    {
+        AddOutcome(result, matchId, outcomeId, team1Id);
+        AddOutcome(result, matchId, outcomeId, team2Id);
     }
 }

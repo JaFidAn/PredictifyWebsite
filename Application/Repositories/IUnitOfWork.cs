@@ -6,4 +6,5 @@ public interface IUnitOfWork
     Task CommitAsync();
     Task RollbackAsync();
     Task<int> SaveChangesAsync();
+    bool DisableAuditLogging { get; set; }
 }
